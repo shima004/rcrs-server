@@ -1,29 +1,28 @@
 package rescuecore2.standard.kernel;
 
-import rescuecore2.config.Config;
-import rescuecore2.messages.Command;
-import rescuecore2.log.Logger;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
+import kernel.AgentProxy;
+import kernel.CommandCollector;
+import rescuecore2.config.Config;
+import rescuecore2.log.Logger;
+import rescuecore2.messages.Command;
+import rescuecore2.standard.messages.AKClear;
 import rescuecore2.standard.messages.AKClearArea;
 import rescuecore2.standard.messages.AKExtinguish;
-import rescuecore2.standard.messages.AKMove;
-import rescuecore2.standard.messages.AKClear;
-import rescuecore2.standard.messages.AKRescue;
 import rescuecore2.standard.messages.AKLoad;
-import rescuecore2.standard.messages.AKUnload;
+import rescuecore2.standard.messages.AKMove;
+import rescuecore2.standard.messages.AKRescue;
 import rescuecore2.standard.messages.AKRest;
-
-import kernel.CommandCollector;
-import kernel.AgentProxy;
-
-import java.util.Collection;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.ArrayList;
+import rescuecore2.standard.messages.AKUnload;
 
 /**
-   A CommandCollector that will wait until a non-communication command has been received from each agent.
-*/
+ * A CommandCollector that will wait until a non-communication command has been
+ * received from each agent.
+ */
 public class StandardCommandCollector implements CommandCollector {
     private static final long WAIT_TIME = 100;
 
@@ -32,8 +31,10 @@ public class StandardCommandCollector implements CommandCollector {
     }
 
     @Override
-    public Collection<Command> getAgentCommands(Collection<AgentProxy> agents, int timestep) throws InterruptedException {
+    public Collection<Command> getAgentCommands(Collection<AgentProxy> agents, int timestep)
+            throws InterruptedException {
         Set<AgentProxy> waiting = new HashSet<AgentProxy>(agents);
+        long start_time = System.currentTimeMillis();
         while (!waiting.isEmpty()) {
             for (AgentProxy next : agents) {
                 Collection<Command> commands = next.getAgentCommands(timestep);
@@ -47,6 +48,7 @@ public class StandardCommandCollector implements CommandCollector {
             Logger.info(this + " waiting for commands from " + waiting.size() + " agents");
             Thread.sleep(WAIT_TIME);
         }
+        Logger.info("Waiting" + (System.currentTimeMillis() - start_time) + "ms for all agents to send commands");
         Collection<Command> result = new ArrayList<Command>();
         for (AgentProxy next : agents) {
             result.addAll(next.getAgentCommands(timestep));

@@ -1,15 +1,16 @@
 package kernel;
 
-import rescuecore2.config.Config;
-import rescuecore2.messages.Command;
-import rescuecore2.log.Logger;
-
-import java.util.Collection;
 import java.util.ArrayList;
+import java.util.Collection;
+
+import rescuecore2.config.Config;
+import rescuecore2.log.Logger;
+import rescuecore2.messages.Command;
 
 /**
-   A CommandCollector that waits for a certain amount of time before returning agent commands.
-*/
+ * A CommandCollector that waits for a certain amount of time before returning
+ * agent commands.
+ */
 public class TimedCommandCollector implements CommandCollector {
     private static final int DEFAULT_TIME = 1000;
     private static final String TIME_KEY = "kernel.agents.think-time";
@@ -22,7 +23,8 @@ public class TimedCommandCollector implements CommandCollector {
     }
 
     @Override
-    public Collection<Command> getAgentCommands(Collection<AgentProxy> agents, int timestep) throws InterruptedException {
+    public Collection<Command> getAgentCommands(Collection<AgentProxy> agents, int timestep)
+            throws InterruptedException {
         long now = System.currentTimeMillis();
         long end = now + time;
         while (now < end) {
@@ -38,6 +40,8 @@ public class TimedCommandCollector implements CommandCollector {
         }
         Logger.trace(this + " returning " + result.size() + " commands");
         Logger.trace(this + " returning " + result);
+        Logger.info(
+                "Returning " + result.size() + " commands " + "agents: " + agents.size() + " timestep: " + timestep);
         return result;
     }
 
