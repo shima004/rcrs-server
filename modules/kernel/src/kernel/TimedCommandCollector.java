@@ -37,6 +37,11 @@ public class TimedCommandCollector implements CommandCollector {
         for (AgentProxy next : agents) {
             Collection<Command> commands = next.getAgentCommands(timestep);
             result.addAll(commands);
+            if (commands.isEmpty()) {
+                Logger.info("No commands for agent " + next.getName() + " : " + next.getControlledEntity().getID() + " at timestep " + timestep);
+            } else {
+                Logger.info("Commands for agent " + next.getName() + " : " + next.getControlledEntity().getID() + ": " + commands + " at timestep " + timestep);
+            }
         }
         Logger.trace(this + " returning " + result.size() + " commands");
         Logger.trace(this + " returning " + result);
