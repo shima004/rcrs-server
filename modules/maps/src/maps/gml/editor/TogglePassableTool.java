@@ -79,19 +79,7 @@ public class TogglePassableTool extends AbstractTool {
     }
 
     private void setPassable(GMLEdge edge, boolean passable) {
-        edge.setPassable(passable);
-        Collection<GMLShape> attached = editor.getMap().getAttachedShapes(edge);
-        Iterator<GMLShape> it = attached.iterator();
-        GMLShape first = it.next();
-        GMLShape second = it.next();
-        if (passable) {
-            first.setNeighbour(edge, second.getID());
-            second.setNeighbour(edge, first.getID());
-        }
-        else {
-            first.setNeighbour(edge, null);
-            second.setNeighbour(edge, null);
-        }
+        editor.getMap().toggleEdgePassable(edge, passable);
         editor.setChanged();
         editor.getViewer().repaint();
     }
