@@ -570,6 +570,13 @@ public class GMLMapViewer extends JComponent {
         overlays.remove(overlay);
     }
 
+    /**
+     * Remove all overlays from the view.
+     */
+    public void clearOverlays() {
+        overlays.clear();
+    }
+
     @Override
     public void paintComponent(Graphics graphics) {
         super.paintComponent(graphics);

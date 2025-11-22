@@ -559,6 +559,7 @@ public class GMLEditor extends JPanel {
     addFunction(new FixDegenerateShapesFunction(this), menu, toolbar);
     addFunction(new FixAttachedObjectsFunction(this), menu, toolbar);
     addFunction(new ValidateFunction(this), menu, toolbar);
+    addFunction(new ClearHighlightsFunction(this), menu, toolbar);
     addFunction(new AddNoiseFunction(this), menu, toolbar);
   }
 
