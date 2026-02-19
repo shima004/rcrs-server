@@ -7,9 +7,7 @@ defaultTasks 'completeBuild'
 
 group = 'com.github.roborescue'
 
-sourceCompatibility = '17'
-targetCompatibility = '17'
-version = '2.0'
+version = '2.1'
 
 def getDateTime() {
   new Date().format('yyyyMMddHHmmss', TimeZone.getTimeZone('UTC'))
@@ -75,6 +73,13 @@ sourceSets {
   }
 }
 
+java {
+  toolchain {
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+  }
+}
+
 test {
   useJUnitPlatform()
 }
@@ -82,7 +87,7 @@ test {
 jar {
   manifest {
     attributes('Implementation-Title': project.name,
-      'Implementation-Version': project.version + '-${getDateTime()}')
+               'Implementation-Version': project.version + '-${getDateTime()}')
   }
 }
 
@@ -107,7 +112,6 @@ publishing {
 
 clean {
   doFirst {
-    delete file( new File( rootDir, 'bin' ) )
     delete file( new File( rootDir, 'build' ) )
     delete file( new File( rootDir, 'jars' ) )
     delete file( new File( rootDir, 'lib' ) )
@@ -115,9 +119,10 @@ clean {
   }
 }
 
-[compileJava, compileTestJava].each {
-  it.options.encoding = 'UTF-8'
-  it.options.compilerArgs += [ '-Xlint:deprecation' ]
+tasks.withType(JavaCompile).configureEach {
+  options.release = 21
+  options.encoding = 'UTF-8'
+  options.compilerArgs += [ '-Xlint:deprecation' ]
 }
 
 task exportLibs(type: Copy) {
@@ -127,7 +132,7 @@ task exportLibs(type: Copy) {
 
 /* Modules jar generation tasks */
 task clearSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'clear/**'
   }
@@ -144,7 +149,7 @@ task clearJar(type: Jar) {
 }
 
 task collapseSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'collapse/**'
   }
@@ -161,7 +166,7 @@ task collapseJar(type: Jar) {
 }
 
 task gis2SourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'gis2/**'
   }
@@ -178,7 +183,7 @@ task gis2Jar(type: Jar) {
 }
 
 task ignitionSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'ignition/**'
   }
@@ -195,7 +200,7 @@ task ignitionJar(type: Jar) {
 }
 
 task kernelSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'kernel/**'
   }
@@ -212,7 +217,7 @@ task kernelJar(type: Jar) {
 }
 
 task mapsSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'maps/**'
   }
@@ -229,7 +234,7 @@ task mapsJar(type: Jar) {
 }
 
 task miscSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'misc/**'
   }
@@ -246,7 +251,7 @@ task miscJar(type: Jar) {
 }
 
 task rescuecore2SourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'rescuecore2/**'
     exclude 'rescuecore2/standard/**'
@@ -271,7 +276,7 @@ task rescuecore2Jar(type: Jar) {
 }
 
 task resqFireSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'rescuecore/**'
     include 'firesimulator/**'
@@ -290,7 +295,7 @@ task resqFireJar(type: Jar) {
 }
 
 task sampleSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'sample/**'
   }
@@ -307,7 +312,7 @@ task sampleJar(type: Jar) {
 }
 
 task standardSourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'rescuecore2/standard/**'
   }
@@ -330,7 +335,7 @@ task standardJar(type: Jar) {
 }
 
 task traffic3SourceJar(type: Jar, dependsOn: classes) {
-  classifier = 'sources'
+  archiveClassifier = 'sources'
   from(sourceSets.main.allSource) {
     include 'traffic3/**'
   }
@@ -364,23 +369,6 @@ task completeBuild(type: GradleBuild) {
             'sampleJar', 'standardJar', 'traffic3Jar', 'sourcesJar',
             'exportLibs'
           ]
-}
-if (project.hasProperty("args")) {
-    ext.cmdargs = project.getProperty("args")
-} else { 
-    ext.cmdargs = '-c maps/test/config/kernel.cfg --gis.map.dir=maps/test/map --kernel.logname=logs/log/rescue.log.xz'
-}
-
-/* run simulator */
-task run2(type: JavaExec) {
-  classpath = files('jars')
-  classpath = files('lib')
-  classpath += files('.')
-  classpath += sourceSets.main.runtimeClasspath
-  mainClass = 'kernel.StartKernel'
-  maxHeapSize = '2048m'
-  jvmArgs '-Dlog4j.log.dir=logs/log'
-  args(cmdargs.split(' '))
 }
 
 /* Generate a random scenario */
