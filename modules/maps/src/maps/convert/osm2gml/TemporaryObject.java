@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Map;
@@ -16,8 +17,9 @@ import java.awt.geom.Path2D;
 import java.awt.geom.Area;
 import java.awt.Shape;
 
+import rescuecore2.misc.geometry.GeometryTools2D;
+import rescuecore2.misc.geometry.Line2D;
 import rescuecore2.misc.geometry.Point2D;
-//import rescuecore2.log.Logger;
 
 import maps.gml.GMLCoordinates;
 import maps.gml.GMLTools;
@@ -25,19 +27,22 @@ import maps.gml.GMLTools;
 /**
    Abstract base class for temporary data structures during conversion.
 */
-public abstract class TemporaryObject {
-    private List<DirectedEdge> edges;
-    private Map<DirectedEdge, TemporaryObject> neighbours;
+public abstract class TemporaryObject implements SpatialIndexable {
+    private final List<DirectedEdge> edges;
+    private final Map<DirectedEdge, TemporaryObject> neighbours;
+
+    // The following properties are cached for performance.
     private Path2D path;
     private Rectangle2D bounds;
+    private Point2D centroid;
 
     /**
        Construct a new TemporaryObject.
        @param edges The edges of the object in counter-clockwise order.
     */
     protected TemporaryObject(List<DirectedEdge> edges) {
-        this.edges = new ArrayList<DirectedEdge>(edges);
-        neighbours = new HashMap<DirectedEdge, TemporaryObject>();
+        this.edges = new ArrayList<>(edges);
+        neighbours = new HashMap<>();
     }
 
     /**
@@ -46,6 +51,42 @@ public abstract class TemporaryObject {
     */
     public List<DirectedEdge> getEdges() {
         return Collections.unmodifiableList(edges);
+    }
+
+    /**
+     * Get the nodes of this object.
+     * @return The nodes.
+     */
+    public List<Node> getNodes() {
+        List<Node> nodes = new ArrayList<>();
+        if (edges.isEmpty()) return Collections.unmodifiableList(nodes);
+
+        Node first = edges.get(0).getStartNode();
+        nodes.add(first);
+
+        for (int i = 1; i < edges.size(); ++i) {
+            Node last = edges.get(i).getEndNode();
+            if (!last.equals(first)) nodes.add(last);
+        }
+
+        return Collections.unmodifiableList(nodes);
+    }
+
+    /**
+     * Get the list of vertices (coordinates) of this object as a closed polygon.
+     * The first vertex is automatically added at the end to ensure the polygon is closed.
+     * @return An unmodifiable list of Point2D representing the vertices of the object.
+     */
+    public List<Point2D> getVertices() {
+        List<Point2D> vertices = new ArrayList<>();
+        if (edges.isEmpty()) return Collections.unmodifiableList(vertices);
+
+        vertices.add(edges.get(0).getStartCoordinates());
+        for (DirectedEdge edge : edges) {
+            vertices.add(edge.getEndCoordinates());
+        }
+
+        return Collections.unmodifiableList(vertices);
     }
 
     /**
@@ -80,7 +121,7 @@ public abstract class TemporaryObject {
        @return A list of GMLCoordinates.
     */
     public List<GMLCoordinates> makeGMLCoordinates() {
-        List<GMLCoordinates> result = new ArrayList<GMLCoordinates>();
+        List<GMLCoordinates> result = new ArrayList<>();
         for (DirectedEdge next : edges) {
             Point2D p = next.getStartCoordinates();
             result.add(new GMLCoordinates(p.getX(), p.getY()));
@@ -92,6 +133,7 @@ public abstract class TemporaryObject {
        Get the bounds of this object.
        @return The bounds.
     */
+    @Override
     public Rectangle2D getBounds() {
         if (bounds == null) {
             bounds = GMLTools.getBounds(makeGMLCoordinates());
@@ -147,7 +189,7 @@ public abstract class TemporaryObject {
             return false;
         }
         // Check that edges are equivalent
-        // Walk through the edge lists starting at the beginning for me and at the equivalent edge in other. When we reach the end of other go back to the start.
+        // Walk through the edge lists starting at the beginning for me and at the equivalent edge in others. When we reach the end of other go back to the start.
         while (ix.hasNext()) {
             DirectedEdge a = it.next();
             DirectedEdge b = ix.next();
@@ -167,7 +209,7 @@ public abstract class TemporaryObject {
     }
 
     /**
-       Check if this object is a entirely inside another.
+       Check if this object is an entirely inside another.
        @param other The other object to check against.
        @return True if this object is entirely inside the other, false otherwise.
     */
@@ -188,29 +230,22 @@ public abstract class TemporaryObject {
        @param replacements The set of replacement edges. These can be in any order.
     */
     protected void replaceEdge(Edge edge, Collection<Edge> replacements) {
-        //        Logger.debug(this + " replacing edge " + edge + " with " + replacements);
-        //        Logger.debug("Old edge list: " + edges);
         if (replacements.isEmpty()) {
             // Just remove the edge
-            for (Iterator<DirectedEdge> it = edges.iterator(); it.hasNext();) {
-                DirectedEdge next = it.next();
-                if (next.getEdge().equals(edge)) {
-                    it.remove();
-                }
-            }
+            edges.removeIf(next -> next.getEdge().equals(edge));
         }
         else {
             for (ListIterator<DirectedEdge> it = edges.listIterator(); it.hasNext();) {
                 DirectedEdge next = it.next();
                 if (next.getEdge().equals(edge)) {
                     it.remove();
-                    Set<Edge> replacementsSet = new HashSet<Edge>(replacements);
+                    Set<Edge> replacementsSet = new HashSet<>(replacements);
                     // Create directed edges for the replacements
                     Node start = next.getStartNode();
                     Node end = next.getEndNode();
                     while (!start.equals(end)) {
                         DirectedEdge newEdge = findNewEdge(start, replacementsSet);
-                        replacementsSet.remove(newEdge.getEdge());
+                        replacementsSet.remove(Objects.requireNonNull(newEdge).getEdge());
                         it.add(newEdge);
                         start = newEdge.getEndNode();
                     }
@@ -218,9 +253,9 @@ public abstract class TemporaryObject {
                 }
             }
         }
-        //        Logger.debug("New edge list: " + edges);
         bounds = null;
         path = null;
+        centroid = null;
     }
 
     private DirectedEdge findNewEdge(Node from, Set<Edge> candidates) {
@@ -242,5 +277,30 @@ public abstract class TemporaryObject {
             }
         }
         throw new IllegalArgumentException("Edge " + e + " not found");
+    }
+
+    /**
+     * Compute the centroid of this object.
+     * The centroid is calculated from the vertices of the object treated as a closed polygon.
+     * @return The centroid as a Point2D.
+     */
+    public Point2D getCentroid() {
+        if (centroid == null) {
+            centroid = GeometryTools2D.computeCentroid(getVertices());
+        }
+        return centroid;
+    }
+
+    /**
+     * Get the edges of this object as Line2D.
+     * @return A list of Line2D representing the edges of this object.
+     */
+    public List<Line2D> getLines() {
+        List<Line2D> lines = new ArrayList<>();
+        if (edges.isEmpty()) return Collections.unmodifiableList(lines);
+        for (DirectedEdge edge : edges) {
+            lines.add(edge.getLine());
+        }
+        return Collections.unmodifiableList(lines);
     }
 }

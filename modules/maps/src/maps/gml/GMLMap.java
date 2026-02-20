@@ -961,6 +961,23 @@ public class GMLMap implements maps.Map {
         return result;
     }
 
+    public void toggleEdgePassable(GMLEdge target, boolean isPassable) {
+        target.setPassable(isPassable);
+
+        Collection<GMLShape> attached = getAttachedShapes(target);
+        Iterator<GMLShape> it = attached.iterator();
+        GMLShape first = it.next();
+        GMLShape second = it.next();
+        if (isPassable) {
+            first.setNeighbour(target, second.getID());
+            second.setNeighbour(target, first.getID());
+        }
+        else {
+            first.setNeighbour(target, null);
+            second.setNeighbour(target, null);
+        }
+    }
+
     private void addShape(GMLShape shape) {
         addObject(shape);
         allShapes.add(shape);

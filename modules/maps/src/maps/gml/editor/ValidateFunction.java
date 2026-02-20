@@ -28,7 +28,7 @@ import rescuecore2.log.Logger;
  *
  */
 public class ValidateFunction extends AbstractFunction {
-    private static final Color HIGHLIGHT_COLOUR = Color.RED;
+    private static final Color HIGHLIGHT_COLOUR = new Color(255, 0,  0, 128);
     private static final int NODE_SIZE = 5;
 
     private DecoratorOverlay overlay = new DecoratorOverlay();

@@ -1,5 +1,7 @@
 package gis2.scenario;
 
+import javax.swing.Icon;
+
 /**
  * Interface for a scenario editing tool.
  */
@@ -10,6 +12,13 @@ public interface Tool {
    * @return The name of the tool.
    */
   String getName();
+
+  /**
+   * Get the icon of this tool.
+   *
+   * @return The icon of the tool.
+   */
+  Icon getIcon();
 
   /**
    * Activate this tool.

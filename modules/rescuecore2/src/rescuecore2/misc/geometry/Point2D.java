@@ -74,6 +74,14 @@ public class Point2D implements Indexable {
     return new Point2D(this.x + v.getX(), this.y + v.getY());
   }
 
+  /**
+   * Convert this point into a vector from the origin.
+   * @return A Vector2D from (0,0) to this point.
+   */
+  public Vector2D toVector() {
+    return new Vector2D(x, y);
+  }
+
   @Override
   public boolean equals(Object o) {
     if (!(o instanceof Point2D)) {

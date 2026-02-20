@@ -13,15 +13,16 @@ import maps.gml.view.Overlay;
 import rescuecore2.misc.collections.LazyMap;
 import rescuecore2.misc.gui.ScreenTransform;
 
+import static gis2.scenario.EntityColours.AMBULANCE_TEAM_COLOUR;
+import static gis2.scenario.EntityColours.CIVILIAN_COLOUR;
+import static gis2.scenario.EntityColours.FIRE_BRIGADE_COLOUR;
+import static gis2.scenario.EntityColours.POLICE_FORCE_COLOUR;
+
 /**
  * Overlay for viewing agents in a scenario.
  */
 public class AgentOverlay implements Overlay {
   private static final int SIZE = 11;
-  private static final Color CIVILIAN_COLOUR = Color.GREEN;
-  private static final Color FIRE_BRIGADE_COLOUR = Color.RED;
-  private static final Color POLICE_FORCE_COLOUR = Color.BLUE;
-  private static final Color AMBULANCE_TEAM_COLOUR = Color.WHITE;
   private static final int OFFSET = 7;
   private ScenarioEditor editor;
 

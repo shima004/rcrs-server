@@ -2,7 +2,7 @@ package gis2.scenario;
 
 import gis2.GisScenario;
 
-import java.util.HashSet;
+import javax.swing.undo.AbstractUndoableEdit;
 
 /**
  * Function for removing all agents.
@@ -19,19 +19,40 @@ public class ClearAgentsFunction extends AbstractFunction {
 
   @Override
   public String getName() {
-    return "Remove agents";
+    return "Remove Agents";
   }
 
   @Override
   public void execute() {
-    GisScenario s = editor.getScenario();
-    s.setFireBrigades(new HashSet<Integer>());
-    s.setFireStations(new HashSet<Integer>());
-    s.setPoliceForces(new HashSet<Integer>());
-    s.setPoliceOffices(new HashSet<Integer>());
-    s.setAmbulanceTeams(new HashSet<Integer>());
-    s.setAmbulanceCentres(new HashSet<Integer>());
+    GisScenario scenario = editor.getScenario();
+    ScenarioSnapshot snapshot = new ScenarioSnapshot(scenario);
+    ClearAgentsEdit clearEdit = new ClearAgentsEdit(snapshot);
+
+    scenario.clearAgents();
     editor.setChanged();
     editor.updateOverlays();
+    editor.addEdit(clearEdit);
+  }
+
+  private class ClearAgentsEdit extends AbstractUndoableEdit {
+    private final ScenarioSnapshot snapshot;
+
+    public ClearAgentsEdit(ScenarioSnapshot snapshot) {
+      this.snapshot = snapshot;
+    }
+
+    @Override
+    public void undo() {
+      super.undo();
+      snapshot.restore(editor.getScenario());
+      editor.updateOverlays();
+    }
+
+    @Override
+    public void redo() {
+      super.redo();
+      editor.getScenario().clearAgents();
+      editor.updateOverlays();
+    }
   }
 }

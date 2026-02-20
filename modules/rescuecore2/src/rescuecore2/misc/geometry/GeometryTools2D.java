@@ -229,7 +229,41 @@ public final class GeometryTools2D {
        @return The area of the polygon.
     */
     public static double computeArea(List<Point2D> vertices) {
-        return Math.abs(computeAreaUnsigned(vertices));
+        return Math.abs(computeSignedArea(vertices));
+    }
+
+    /**
+     * Compute the signed area of a simple polygon.
+     * The sigh of the area indicates the orientation of the vertices:
+     * positive if counter-clockwise, negative if clockwise.
+     * @param vertices The vertices of the polygon in order.
+     * @return The signed area of the polygon. Positive for counter-clockwise orientation.
+     */
+    public static double computeSignedArea(List<Point2D> vertices) {
+        // Shift all vertices so that the first vertex becomes the origin (0,0).
+        // This improves numerical stability when computing the polygon area.
+        List<Point2D> shiftedVertices = translate(vertices, vertices.get(0).toVector().negate());
+
+        Iterator<Point2D> it = shiftedVertices.iterator();
+        Point2D last = it.next();
+        Point2D first = last;
+        double sum = 0;
+        while (it.hasNext()) {
+            Point2D next = it.next();
+            double lastX = last.getX();
+            double lastY = last.getY();
+            double nextX = next.getX();
+            double nextY = next.getY();
+            sum += (lastX * nextY) - (nextX * lastY);
+            last = next;
+        }
+        double lastX = last.getX();
+        double lastY = last.getY();
+        double nextX = first.getX();
+        double nextY = first.getY();
+        sum += (lastX * nextY) - (nextX * lastY);
+        sum /= 2.0;
+        return sum;
     }
 
     /**
@@ -238,8 +272,15 @@ public final class GeometryTools2D {
        @return The centroid.
     */
     public static Point2D computeCentroid(List<Point2D> vertices) {
-        double area = computeAreaUnsigned(vertices);
-        Iterator<Point2D> it = vertices.iterator();
+        // Translation vector to move the first vertex to the origin.
+        Vector2D shiftVector = vertices.get(0).toVector();
+
+        // Shift all vertices so that the first vertex lies at (0,0).
+        // The improves numerical stability in the centroid calculation.
+        List<Point2D> shiftedVertices = translate(vertices, shiftVector.negate());
+
+        double area = computeSignedArea(shiftedVertices);
+        Iterator<Point2D> it = shiftedVertices.iterator();
         Point2D last = it.next();
         Point2D first = last;
         double xSum = 0;
@@ -264,7 +305,20 @@ public final class GeometryTools2D {
         xSum /= 6.0 * area;
         ySum /= 6.0 * area;
         // CHECKSTYLE:ON:MagicNumber
-        return new Point2D(xSum, ySum);
+
+        // Translate the centroid back to the original coordinate system.
+        return new Point2D(xSum, ySum).plus(shiftVector);
+    }
+
+    /**
+     * Check if the vertices of a polygon are ordered in a counter-clockwise direction.
+     * This is determined by the sign of the signed area of the polygon.
+     * A positive area corresponds to a counter-clockwise ordering.
+     * @param vertices The vertices of the polygon.
+     * @return true if the vertices are in counter-clockwise order, false otherwise.
+     */
+    public static boolean isCounterClockwise(List<Point2D> vertices) {
+        return 0 < computeSignedArea(vertices);
     }
 
     /**
@@ -439,26 +493,13 @@ public final class GeometryTools2D {
         return new Line2D(line.getPoint(tMin), line.getPoint(tMax));
     }
 
-    private static double computeAreaUnsigned(List<Point2D> vertices) {
-        Iterator<Point2D> it = vertices.iterator();
-        Point2D last = it.next();
-        Point2D first = last;
-        double sum = 0;
-        while (it.hasNext()) {
-            Point2D next = it.next();
-            double lastX = last.getX();
-            double lastY = last.getY();
-            double nextX = next.getX();
-            double nextY = next.getY();
-            sum += (lastX * nextY) - (nextX * lastY);
-            last = next;
-        }
-        double lastX = last.getX();
-        double lastY = last.getY();
-        double nextX = first.getX();
-        double nextY = first.getY();
-        sum += (lastX * nextY) - (nextX * lastY);
-        sum /= 2.0;
-        return sum;
+    /**
+     * Translate a list of points by a given vector.
+     * @param points The points to translate.
+     * @param vector The translation vector.
+     * @return A new list of points, each shifted by the translation vector.
+     */
+    public static List<Point2D> translate(List<Point2D> points, Vector2D vector) {
+        return points.stream().map(p -> p.plus(vector)).toList();
     }
 }

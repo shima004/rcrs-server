@@ -370,46 +370,43 @@ public class OSMMap {
 
     private void processWay(Element e) {
         long id = Long.parseLong(e.attributeValue("id"));
-        List<Long> ids = new ArrayList<Long>();
-        for (Object next : e.elements("nd")) {
-            Element nd = (Element)next;
-            Long nextID = Long.parseLong(nd.attributeValue("ref"));
+        List<Long> ids = new ArrayList<>();
+
+        for (Element next : e.elements("nd")) {
+            Long nextID = Long.parseLong(next.attributeValue("ref"));
             ids.add(nextID);
         }
+
         // Is this way a road or a building?
-        boolean road = false;
-        boolean building = false;
-        for (Object next : e.elements("tag")) {
-            Element tag = (Element)next;
-            building = building || tagSignifiesBuilding(tag);
-            road = road || tagSignifiesRoad(tag);
+        boolean isRoad = false;
+        boolean isBuilding = false;
+        boolean isNonGroundLevel = false;
+
+        for (Element tag : e.elements("tag")) {
+            String key = tag.attributeValue("k");
+            String value = tag.attributeValue("v");
+
+            isBuilding = isBuilding || "building".equals(key) && "yes".equals(value);
+            isRoad = isRoad || "highway".equals(key) && ROAD_MARKERS.contains(value);
+
+            // Check if this object is on a different level (bridge, tunnel, etc.)
+            if ("layer".equals(key) && !"0".equals(value) ||
+                "bridge".equals(key) && "yes".equals(value) ||
+                "tunnel".equals(key) && "yes".equals(value)) {
+                isNonGroundLevel = true;
+            }
         }
-        if (building) {
+
+        // If the object is on a non-ground level, we ignore it completely
+        if (isNonGroundLevel) {
+            return;
+        }
+
+        if (isBuilding) {
             buildings.put(id, new OSMBuilding(id, ids));
         }
-        else if (road) {
+        if (isRoad) {
             roads.put(id, new OSMRoad(id, ids));
         }
-    }
-
-    private boolean tagSignifiesRoad(Element tag) {
-        String key = tag.attributeValue("k");
-        String value = tag.attributeValue("v");
-        if (!"highway".equals(key)) {
-            return false;
-        }
-        return ROAD_MARKERS.contains(value);
-    }
-
-    private boolean tagSignifiesBuilding(Element tag) {
-        String key = tag.attributeValue("k");
-        String value = tag.attributeValue("v");
-        if ("building".equals(key)) {
-            return "yes".equals(value);
-        }
-        if ("rcr:building".equals(key)) {
-            return "1".equals(value);
-        }
-        return false;
     }
 }

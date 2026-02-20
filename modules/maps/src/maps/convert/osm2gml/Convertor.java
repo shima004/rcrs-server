@@ -54,25 +54,24 @@ public class Convertor {
         c.anchor = GridBagConstraints.CENTER;
         c.insets = new Insets(MARGIN, MARGIN, MARGIN, MARGIN);
         JPanel progress = new JPanel(layout);
-
-        //        Random random = new Random();
-
         TemporaryMap temp = new TemporaryMap(map);
 
-        List<ConvertStep> steps = new ArrayList<ConvertStep>();
+        List<ConvertStep> steps = new ArrayList<>();
         addStep(new CleanOSMStep(temp), steps, progress, layout, c);
         addStep(new ScanOSMStep(temp), steps, progress, layout, c);
+        addStep(new RemovePseudoNodesStep(temp), steps, progress, layout, c);
+        addStep(new MergeIntersectionStep(temp), steps, progress, layout, c);
+        addStep(new GenerateIntersectionAreaStep(temp), steps, progress, layout, c);
         addStep(new MakeTempObjectsStep(temp), steps, progress, layout, c);
+        addStep(new CleanBuildingOverlapsStep(temp), steps, progress, layout, c);
+        addStep(new MergePassableShapesStep(temp), steps, progress, layout, c);
+        addStep(new ConnectBuildingsStep(temp), steps, progress, layout, c);
+        addStep(new PruneOrphanBuildingsStep(temp), steps, progress, layout, c);
+        addStep(new EnsureTraversabilityStep(temp), steps, progress, layout, c);
         addStep(new SplitIntersectingEdgesStep(temp), steps, progress, layout, c);
         addStep(new SplitShapesStep(temp), steps, progress, layout, c);
         addStep(new RemoveShapesStep(temp), steps, progress, layout, c);
-        addStep(new MergeShapesStep(temp), steps, progress, layout, c);
         addStep(new ComputePassableEdgesStep(temp), steps, progress, layout, c);
-        /*
-        addStep(new CreateBuildingsStep(temp, ConvertTools.sizeOf1Metre(osmMap), random), steps, progress, layout, c);
-        addStep(new CreateEntrancesStep(temp), steps, progress, layout, c);
-        addStep(new PruneStep(temp), steps, progress, layout, c);
-        */
         addStep(new MakeObjectsStep(temp, gmlMap), steps, progress, layout, c);
 
         main.add(top);

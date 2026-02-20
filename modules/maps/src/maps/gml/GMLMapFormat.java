@@ -69,15 +69,13 @@ public abstract class GMLMapFormat implements MapFormat {
         try {
             if (!file.exists()) {
                 File parent = file.getParentFile();
-                if (!parent.exists()) {
-                    if (!file.getParentFile().mkdirs()) {
+                if (parent != null && !parent.exists()) {
+                    if (!parent.mkdirs()) {
                         throw new MapException("Couldn't create file " + file.getPath());
                     }
                 }
-                if (!file.createNewFile()) {
-                    throw new MapException("Couldn't create file " + file.getPath());
-                }
             }
+
             XMLWriter writer = new XMLWriter(new FileOutputStream(file), OutputFormat.createPrettyPrint());
             Element root = doc.getRootElement();
             for (java.util.Map.Entry<String, String> next : getNamespaces().entrySet()) {

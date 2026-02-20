@@ -1,5 +1,7 @@
 package maps.convert.osm2gml;
 
+import lombok.Getter;
+import lombok.Setter;
 import rescuecore2.misc.geometry.Point2D;
 
 import maps.osm.OSMNode;
@@ -14,12 +16,12 @@ import java.util.ArrayList;
    Information about an OSM road.
 */
 public class OSMRoadInfo implements OSMShape {
-    private OSMNode from;
-    private OSMNode to;
-    private Point2D fromLeft;
-    private Point2D toLeft;
-    private Point2D fromRight;
-    private Point2D toRight;
+    @Setter @Getter private OSMNode from;
+    @Setter @Getter private OSMNode to;
+    @Getter private Point2D fromLeft;
+    @Getter private Point2D toLeft;
+    @Getter private Point2D fromRight;
+    @Getter private Point2D toRight;
     private Area area;
 
     /**
@@ -34,23 +36,7 @@ public class OSMRoadInfo implements OSMShape {
     }
 
     /**
-       Get the "from" node.
-       @return The "from" node.
-    */
-    public OSMNode getFrom() {
-        return from;
-    }
-
-    /**
-       Get the "to" node.
-       @return The "to" node.
-    */
-    public OSMNode getTo() {
-        return to;
-    }
-
-    /**
-       Set the point that is at the left side of this road at the "from" end.
+       Set the point that is on the left side of this road at the "from" end.
        @param p The from-left corner point.
     */
     public void setFromLeft(Point2D p) {
@@ -59,7 +45,7 @@ public class OSMRoadInfo implements OSMShape {
     }
 
     /**
-       Set the point that is at the right side of this road at the "from" end.
+       Set the point that is on the right side of this road at the "from" end.
        @param p The from-right corner point.
     */
     public void setFromRight(Point2D p) {
@@ -68,7 +54,7 @@ public class OSMRoadInfo implements OSMShape {
     }
 
     /**
-       Set the point that is at the left side of this road at the "to" end.
+       Set the point that is on the left side of this road at the "to" end.
        @param p The to-left corner point.
     */
     public void setToLeft(Point2D p) {
@@ -77,44 +63,12 @@ public class OSMRoadInfo implements OSMShape {
     }
 
     /**
-       Set the point that is at the right side of this road at the "to" end.
+       Set the point that is on the right side of this road at the "to" end.
        @param p The to-right corner point.
     */
     public void setToRight(Point2D p) {
         toRight = p;
         area = null;
-    }
-
-    /**
-       Get the point that is at the left side of this road at the "from" end.
-       @return The from-left corner point.
-    */
-    public Point2D getFromLeft() {
-        return fromLeft;
-    }
-
-    /**
-       Get the point that is at the right side of this road at the "from" end.
-       @return The from-right corner point.
-    */
-    public Point2D getFromRight() {
-        return fromRight;
-    }
-
-    /**
-       Get the point that is at the left side of this road at the "to" end.
-       @return The to-left corner point.
-    */
-    public Point2D getToLeft() {
-        return toLeft;
-    }
-
-    /**
-       Get the point that is at the right side of this road at the "to" end.
-       @return The to-right corner point.
-    */
-    public Point2D getToRight() {
-        return toRight;
     }
 
     @Override
@@ -136,7 +90,7 @@ public class OSMRoadInfo implements OSMShape {
 
     @Override
     public List<Point2D> getVertices() {
-        List<Point2D> result = new ArrayList<Point2D>();
+        List<Point2D> result = new ArrayList<>();
         result.add(fromLeft);
         result.add(fromRight);
         result.add(toRight);
@@ -146,17 +100,6 @@ public class OSMRoadInfo implements OSMShape {
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder();
-        result.append("RoadInfo [");
-        result.append(fromLeft);
-        result.append(", ");
-        result.append(fromRight);
-        result.append(", ");
-        result.append(toRight);
-        result.append(", ");
-        result.append(toLeft);
-        result.append("]");
-        return result.toString();
+        return "RoadInfo [" + fromLeft + ", " + fromRight + ", " + toRight + ", " + toLeft + "]";
     }
 }
-

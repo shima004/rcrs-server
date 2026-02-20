@@ -1,5 +1,6 @@
 package gis2.scenario;
 
+import javax.swing.Icon;
 import javax.swing.undo.AbstractUndoableEdit;
 
 import maps.gml.GMLBuilding;
@@ -21,6 +22,11 @@ public class RemoveRefugeTool extends ShapeTool {
   @Override
   public String getName() {
     return "Remove refuge";
+  }
+
+  @Override
+  public Icon getIcon() {
+    return ToolIcons.REMOVE_REFUGE;
   }
 
   @Override

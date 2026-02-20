@@ -1,5 +1,6 @@
 package gis2.scenario;
 
+import javax.swing.Icon;
 import javax.swing.undo.AbstractUndoableEdit;
 
 import maps.gml.GMLBuilding;
@@ -21,6 +22,11 @@ public class PlaceAmbulanceCentreTool extends ShapeTool {
   @Override
   public String getName() {
     return "Place ambulance centre";
+  }
+
+  @Override
+  public Icon getIcon() {
+    return ToolIcons.PLACE_AMBULANCE_CENTRE;
   }
 
   @Override

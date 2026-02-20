@@ -2,13 +2,14 @@ package gis2.scenario;
 
 import gis2.GisScenario;
 
+import javax.swing.undo.AbstractUndoableEdit;
 import java.util.Random;
 
 /**
  * Function for randomizing a scenario.
  */
 public class RandomiseFunction extends AbstractFunction {
-  private Random random;
+  private final Random random;
 
   /**
    * Construct a randomizer function.
@@ -28,13 +29,38 @@ public class RandomiseFunction extends AbstractFunction {
   @Override
   public void execute() {
     RandomScenarioGenerator generator = new RandomScenarioGenerator();
-    GisScenario s = generator.makeRandomScenario(editor.getMap(), random);
-    try {
-      editor.setScenario(editor.getMap(), s);
-      editor.setChanged();
+    GisScenario randomisedScenario = generator.makeRandomScenario(editor.getMap(), random);
+    ScenarioSnapshot beforeSnapshot = new ScenarioSnapshot(editor.getScenario());
+    ScenarioSnapshot afterSnapshot = new ScenarioSnapshot(randomisedScenario);
+    RandomiseEdit randomiseEdit = new RandomiseEdit(beforeSnapshot, afterSnapshot);
+
+    afterSnapshot.restore(editor.getScenario());
+    editor.setChanged();
+    editor.updateOverlays();
+    editor.addEdit(randomiseEdit);
+  }
+
+  private class RandomiseEdit extends AbstractUndoableEdit {
+    private final ScenarioSnapshot beforeSnapshot;
+    private final ScenarioSnapshot afterSnapshot;
+
+    public RandomiseEdit(ScenarioSnapshot beforeSnapshot, ScenarioSnapshot afterSnapshot) {
+      this.beforeSnapshot = beforeSnapshot;
+      this.afterSnapshot = afterSnapshot;
+    }
+
+    @Override
+    public void undo() {
+      super.undo();
+      beforeSnapshot.restore(editor.getScenario());
       editor.updateOverlays();
-    } catch (CancelledByUserException e) {
-      // Ignore
+    }
+
+    @Override
+    public void redo() {
+      super.redo();
+      afterSnapshot.restore(editor.getScenario());
+      editor.updateOverlays();
     }
   }
 }

@@ -13,13 +13,7 @@ import java.util.List;
 
 import javax.swing.undo.AbstractUndoableEdit;
 
-import maps.gml.GMLBuilding;
-import maps.gml.GMLCoordinates;
-import maps.gml.GMLEdge;
-import maps.gml.GMLNode;
-import maps.gml.GMLRoad;
-import maps.gml.GMLShape;
-import maps.gml.GMLSpace;
+import maps.gml.*;
 import maps.gml.view.LineOverlay;
 import maps.gml.view.NodeDecorator;
 import maps.gml.view.SquareNodeDecorator;
@@ -134,6 +128,16 @@ public class SplitShapeTool extends AbstractTool {
     editor.getViewer().repaint();
   }
 
+  protected void fixNeighbourShapes(Collection<GMLShape> added) {
+    for (GMLShape addedShape : added) {
+      for (GMLDirectedEdge directedEdge : addedShape.getEdges()) {
+        GMLEdge checkingTargetEdge = directedEdge.getEdge();
+        if (checkingTargetEdge.isPassable()) {
+          editor.getMap().toggleEdgePassable(checkingTargetEdge, true);
+        }
+      }
+    }
+  }
 
   private class Listener implements MouseListener, MouseMotionListener {
 
@@ -198,7 +202,8 @@ public class SplitShapeTool extends AbstractTool {
         }
       }
       if ( !add.isEmpty() ) {
-        edge.setPassable( true );
+        editor.getMap().toggleEdgePassable(edge, true);
+        fixNeighbourShapes(add);
         return new SplitShapeEdit( edge, add, delete );
       } else {
         editor.getMap().remove( edge );
@@ -340,6 +345,7 @@ public class SplitShapeTool extends AbstractTool {
       editor.getMap().removeEdge( edge );
       editor.getMap().remove( add );
       editor.getMap().add( remove );
+      fixNeighbourShapes(remove);
       editor.getViewer().repaint();
     }
 
@@ -356,6 +362,7 @@ public class SplitShapeTool extends AbstractTool {
       }
       editor.getMap().remove( remove );
       editor.getMap().add( add );
+      fixNeighbourShapes(add);
       editor.getViewer().repaint();
     }
   }

@@ -2,7 +2,7 @@ package gis2.scenario;
 
 import gis2.GisScenario;
 
-import java.util.HashSet;
+import javax.swing.undo.AbstractUndoableEdit;
 
 /**
  * Function for removing all agents, fires, civilians and refuges.
@@ -19,24 +19,40 @@ public class ClearAllFunction extends AbstractFunction {
 
   @Override
   public String getName() {
-    return "Remove all";
+    return "Remove All";
   }
 
   @Override
   public void execute() {
-    GisScenario s = editor.getScenario();
-    s.setFireBrigades(new HashSet<Integer>());
-    s.setFireStations(new HashSet<Integer>());
-    s.setPoliceForces(new HashSet<Integer>());
-    s.setPoliceOffices(new HashSet<Integer>());
-    s.setAmbulanceTeams(new HashSet<Integer>());
-    s.setAmbulanceCentres(new HashSet<Integer>());
-    s.setCivilians(new HashSet<Integer>());
-    s.setFires(new HashSet<Integer>());
-    s.setRefuges(new HashSet<Integer>());
-    s.setGasStations(new HashSet<Integer>());
-    s.setHydrants(new HashSet<Integer>());
+    GisScenario scenario = editor.getScenario();
+    ScenarioSnapshot snapshot = new ScenarioSnapshot(scenario);
+    ClearAllEdit clearEdit = new ClearAllEdit(snapshot);
+
+    scenario.clearAll();
     editor.setChanged();
     editor.updateOverlays();
+    editor.addEdit(clearEdit);
+  }
+
+  private class ClearAllEdit extends AbstractUndoableEdit {
+    private final ScenarioSnapshot snapshot;
+
+    public ClearAllEdit(ScenarioSnapshot snapshot) {
+      this.snapshot = snapshot;
+    }
+
+    @Override
+    public void undo() {
+      super.undo();
+      snapshot.restore(editor.getScenario());
+      editor.updateOverlays();
+    }
+
+    @Override
+    public void redo() {
+      super.redo();
+      editor.getScenario().clearAgents();
+      editor.updateOverlays();
+    }
   }
 }

@@ -1,5 +1,6 @@
 package gis2.scenario;
 
+import javax.swing.Icon;
 import javax.swing.undo.AbstractUndoableEdit;
 
 import maps.gml.GMLRoad;
@@ -21,6 +22,11 @@ public class RemoveHydrantTool extends ShapeTool {
   @Override
   public String getName() {
     return "Remove hydrant";
+  }
+
+  @Override
+  public Icon getIcon() {
+    return ToolIcons.REMOVE_HYDRANT;
   }
 
   @Override

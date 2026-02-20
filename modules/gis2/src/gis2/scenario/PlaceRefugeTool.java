@@ -2,6 +2,7 @@ package gis2.scenario;
 
 import java.awt.GridLayout;
 
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -27,6 +28,11 @@ public class PlaceRefugeTool extends ShapeTool {
   @Override
   public String getName() {
     return "Place refuge";
+  }
+
+  @Override
+  public Icon getIcon() {
+    return ToolIcons.PLACE_REFUGE;
   }
 
   @Override

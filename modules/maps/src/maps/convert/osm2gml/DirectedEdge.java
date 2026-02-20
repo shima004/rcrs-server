@@ -1,14 +1,16 @@
 package maps.convert.osm2gml;
 
+import lombok.Getter;
 import rescuecore2.misc.geometry.Point2D;
 import rescuecore2.misc.geometry.Line2D;
 
 /**
    A DirectedEdge is an edge with an orientation.
  */
+@Getter
 public class DirectedEdge {
-    private Edge edge;
-    private boolean forward;
+    private final Edge edge;
+    private final boolean forward;
     private Line2D line;
 
     /**
@@ -40,30 +42,6 @@ public class DirectedEdge {
     }
 
     /**
-       Get the underlying edge.
-       @return The underlying edge.
-     */
-    public Edge getEdge() {
-        return edge;
-    }
-
-    /**
-       Get the line represented by this edge.
-       @return The line.
-    */
-    public Line2D getLine() {
-        return line;
-    }
-
-    /**
-       Is this directed edge in the direction of the underlying edge?
-       @return True if this directed edge is aligned with the underlying edge direction, false otherwise.
-     */
-    public boolean isForward() {
-        return forward;
-    }
-
-    /**
        Get the node at the start of the underlying edge.
        @return The start node.
      */
@@ -77,6 +55,15 @@ public class DirectedEdge {
      */
     public Node getEndNode() {
         return forward ? edge.getEnd() : edge.getStart();
+    }
+
+    /**
+     * Returns a new DirectedEdge that represents the same underlying edge
+     * but traversed in the opposite direction.
+     * @return A new DirectedEdge with the reverse direction.
+     */
+    public DirectedEdge getReverse() {
+        return new DirectedEdge(this.edge, !this.forward);
     }
 
     /**
@@ -117,8 +104,7 @@ public class DirectedEdge {
 
     @Override
     public boolean equals(Object o) {
-        if (o instanceof DirectedEdge) {
-            DirectedEdge e = (DirectedEdge)o;
+        if (o instanceof DirectedEdge e) {
             return this.forward == e.forward && this.edge.equals(e.edge);
         }
         return false;

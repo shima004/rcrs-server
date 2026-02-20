@@ -1,18 +1,13 @@
 package maps.convert.osm2gml;
 
-import java.util.Set;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.ArrayList;
+import java.awt.geom.Rectangle2D;
+import java.util.*;
 
 import maps.osm.OSMMap;
 
+import maps.osm.OSMNode;
 import rescuecore2.misc.geometry.Point2D;
 import rescuecore2.misc.collections.LazyMap;
-//import rescuecore2.log.Logger;
 
 /**
    This class holds all temporary information during map conversion.
@@ -40,6 +35,11 @@ public class TemporaryMap {
     private Collection<OSMBuildingInfo> osmBuildings;
 
     private int nextID;
+
+    private Rectangle2D cachedBounds;
+
+    private Map<OSMRoadInfo, OSMIntersectionInfo> roadStarts;
+    private Map<OSMRoadInfo, OSMIntersectionInfo> roadEnds;
 
     /**
        Construct a TemporaryMap.
@@ -78,15 +78,31 @@ public class TemporaryMap {
     }
 
     /**
-       Set the OSMMap information.
-       @param intersections The set of intersections.
-       @param roads The set of roads.
-       @param buildings The set of buildings.
-    */
+     * Set the core OSM graph information (intersections, roads, buildings).
+     * This method is the single source of truth for updating the map's graph structure.
+     * It automatically rebuilds the internal road-to-intersection mappings to ensure data.
+     * @param intersections The new collection of intersections.
+     * @param roads         The new collection of roads.
+     * @param buildings     The new collection of buildings.
+     */
     public void setOSMInfo(Collection<OSMIntersectionInfo> intersections, Collection<OSMRoadInfo> roads, Collection<OSMBuildingInfo> buildings) {
-        osmIntersections = new HashSet<OSMIntersectionInfo>(intersections);
-        osmRoads = new HashSet<OSMRoadInfo>(roads);
-        osmBuildings = new HashSet<OSMBuildingInfo>(buildings);
+        osmIntersections = new HashSet<>(intersections);
+        osmRoads = new HashSet<>(roads);
+        osmBuildings = new HashSet<>(buildings);
+
+        Map<OSMNode, OSMIntersectionInfo> nodeToIntersection = new HashMap<>();
+        for (OSMIntersectionInfo i : osmIntersections) {
+            nodeToIntersection.put(i.getUnderlyingNode(), i);
+        }
+
+        Map<OSMRoadInfo, OSMIntersectionInfo> roadStarts = new HashMap<>();
+        Map<OSMRoadInfo, OSMIntersectionInfo> roadEnds = new HashMap<>();
+        for (OSMRoadInfo road : osmRoads) {
+            roadStarts.put(road, nodeToIntersection.get(road.getFrom()));
+            roadEnds.put(road, nodeToIntersection.get(road.getTo()));
+        }
+        this.roadStarts = roadStarts;
+        this.roadEnds = roadEnds;
     }
 
     /**
@@ -111,6 +127,24 @@ public class TemporaryMap {
     */
     public Collection<OSMBuildingInfo> getOSMBuildingInfo() {
         return Collections.unmodifiableCollection(osmBuildings);
+    }
+
+    /**
+     * Get the starting intersection for a given road segment.
+     * @param road The road segment to look up.
+     * @return The starting OSMIntersectionInfo.
+     */
+    public OSMIntersectionInfo getRoadStartIntersection(OSMRoadInfo road) {
+        return roadStarts.get(road);
+    }
+
+    /**
+     * Get the ending intersection for a given road segment.
+     * @param road The road segment to look up.
+     * @return The ending OSMIntersectionInfo.
+     */
+    public OSMIntersectionInfo getRoadEndIntersection(OSMRoadInfo road) {
+        return roadEnds.get(road);
     }
 
     /**
@@ -221,6 +255,17 @@ public class TemporaryMap {
     */
     public Collection<TemporaryBuilding> getBuildings() {
         return new HashSet<TemporaryBuilding>(tempBuildings);
+    }
+
+    /**
+     * Get all passable shape (roads and intersections) in the map.
+     * @return All passable shapes.
+     */
+    public Collection<TemporaryObject> getAllPassableShapes() {
+        List<TemporaryObject> passable = new ArrayList<>();
+        passable.addAll(tempRoads);
+        passable.addAll(tempIntersections);
+        return passable;
     }
 
     /**
@@ -397,12 +442,18 @@ public class TemporaryMap {
         if (!replacements.isEmpty()) {
             replaceEdge(edge, replacements);
         }
+
+        invalidateBoundsCache();
+
         return replacements;
     }
 
     private Node createNode(double x, double y) {
         Node result = new Node(nextID++, x, y);
         nodes.add(result);
+
+        invalidateBoundsCache();
+
         return result;
     }
 
@@ -425,6 +476,8 @@ public class TemporaryMap {
     private void removeNode(Node n) {
         nodes.remove(n);
         edgesAtNode.remove(n);
+
+        invalidateBoundsCache();
     }
 
     private void removeEdge(Edge e) {
@@ -440,5 +493,73 @@ public class TemporaryMap {
         for (DirectedEdge next : object.getEdges()) {
             objectsAtEdge.get(next.getEdge()).remove(object);
         }
+    }
+
+    public Rectangle2D getBounds() {
+        if (this.cachedBounds != null) {
+            return this.cachedBounds;
+        }
+
+        Collection<Node> allNodes = getAllNodes();
+        if (allNodes.isEmpty()) {
+            this.cachedBounds = new Rectangle2D.Double();
+            return this.cachedBounds;
+        }
+
+        double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
+        double maxX = Double.MIN_VALUE, maxY = Double.MIN_VALUE;
+
+        for (Node node : allNodes) {
+            minX = Math.min(minX, node.getX());
+            minY = Math.min(minY, node.getY());
+            maxX = Math.max(maxX, node.getX());
+            maxY = Math.max(maxY, node.getY());
+        }
+
+        this.cachedBounds = new Rectangle2D.Double(minX, minY, maxX - minX, maxY - minY);
+        return this.cachedBounds;
+    }
+
+    private void invalidateBoundsCache() {
+        this.cachedBounds = null;
+    }
+
+    /**
+     * Rebuild the global edge list and all related mappings from the current set of all TemporaryObjects.
+     * This method is computationally expensive and should only be called after major geometric changes
+     * that fundamentally alter the shape of objects, such as CleanOverlapsStep.
+     */
+    public void resynchronizeStateFromObjects() {
+        // Clear all existing low-level geometric data.
+        nodes.clear();
+        edges.clear();
+        edgesAtNode.clear();
+        objectsAtEdge.clear();
+
+        // Re-populate the data from the high-level TemporaryObjects.
+        for (TemporaryObject object : allObjects) {
+            for (DirectedEdge dEdge : object.getEdges()) {
+                Edge edge = dEdge.getEdge();
+                Node start = edge.getStart();
+                Node end = edge.getEnd();
+
+                // Add nodes to the global node list
+                nodes.add(start);
+                nodes.add(end);
+
+                // Add edge to the global edge list
+                edges.add(edge);
+
+                // Rebuild the edgeAtNode mapping
+                edgesAtNode.get(start).add(edge);
+                edgesAtNode.get(end).add(edge);
+
+                // Rebuild the objectsAtEdge mapping
+                objectsAtEdge.get(edge).add(object);
+            }
+        }
+
+        // Invalidate the bounds cache as the node set has changed.
+        invalidateBoundsCache();
     }
 }

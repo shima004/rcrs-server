@@ -4,8 +4,8 @@ package rescuecore2.misc.geometry;
    A vector in 2D space. Points are immutable.
  */
 public class Vector2D {
-    private double dx;
-    private double dy;
+    private final double dx;
+    private final double dy;
     private double length;
 
     /**
@@ -37,6 +37,15 @@ public class Vector2D {
      */
     public double dot(Vector2D v) {
         return dx * v.dx + dy * v.dy;
+    }
+
+    /**
+     * Calculate the cross product of this vector and another vector.
+     * @param v The other vector.
+     * @return The cross product of this vector and the other vector.
+     */
+    public double cross(Vector2D v) {
+        return dx * v.dy - dy * v.dx;
     }
 
     /**
@@ -79,6 +88,14 @@ public class Vector2D {
      */
     public Vector2D normalised() {
         return scale(1.0 / getLength());
+    }
+
+    /**
+     * Get the opposite of this vector.
+     * @return A new Vector2D with both components negated.
+     */
+    public Vector2D negate() {
+        return new Vector2D(-dx, -dy);
     }
 
     /**

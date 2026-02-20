@@ -43,48 +43,57 @@ public class SplitShapesStep extends ConvertStep {
     }
 
     private int splitShapeIfRequired(TemporaryObject shape) {
-        Set<DirectedEdge> edgesRemaining = new HashSet<DirectedEdge>(shape.getEdges());
+        Set<DirectedEdge> edgesRemaining = new HashSet<>(shape.getEdges());
         boolean firstShape = true;
         int newShapeCount = 0;
-        //        debug.show("Splitting shapes", new TemporaryObjectInfo(shape, "Shape", Constants.BLACK, Constants.TRANSPARENT_ORANGE));
-        //        Logger.debug("Splitting shape " + shape);
-        //        Logger.debug("Edges: ");
-        //        for (DirectedEdge e : edgesRemaining) {
-        //            Logger.debug("  " + e);
-        //        }
+
         while (!edgesRemaining.isEmpty()) {
-            //            Logger.debug(edgesRemaining.size() + " edges remaining");
             DirectedEdge dEdge = edgesRemaining.iterator().next();
-            edgesRemaining.remove(dEdge);
             Node start = dEdge.getStartNode();
             Node end = dEdge.getEndNode();
-            List<DirectedEdge> result = new ArrayList<DirectedEdge>();
+
+            List<DirectedEdge> result = new ArrayList<>();
             result.add(dEdge);
-            // Now walk around
+            edgesRemaining.remove(dEdge); // Remove edge as it is used
+
             Logger.debug("Starting walk from " + dEdge);
-            Logger.debug("Start: " + start);
-            Logger.debug("End: " + end);
+
             while (!end.equals(start)) {
                 Set<Edge> candidates = map.getAttachedEdges(end);
-                //                Logger.debug("From edge: " + dEdge);
-                //                Logger.debug("Candidates: ");
-                //                for (Edge e : candidates) {
-                //                    Logger.debug("  " + e);
-                //                }
+
+                candidates.remove(dEdge.getEdge());
+
                 Edge turn = ConvertTools.findLeftTurn(dEdge, candidates);
-                Logger.debug("Best turn: " + turn);
+
+                // If no left turn is found (e.g., we are at a dead end), break the loop.
+                if (turn == null) {
+                    Logger.warn("Could not find a closed loop starting from " + result.get(0) + ". Abandoning path.");
+                    result.clear();
+                    break;
+                }
+
                 DirectedEdge newDEdge = new DirectedEdge(turn, end);
-                //                debug.show("Splitting shapes",
-                //                           new TemporaryObjectInfo(shape, "Shape", Constants.BLACK, Constants.TRANSPARENT_ORANGE),
-                //                           new ShapeDebugFrame.Line2DShapeInfo(dEdge.getLine(), "Edge", Constants.BLUE, true, true),
-                //                           new ShapeDebugFrame.Line2DShapeInfo(newDEdge.getLine(), "Turn", Constants.RED, true, true));
+
                 dEdge = newDEdge;
                 end = dEdge.getEndNode();
-                edgesRemaining.remove(dEdge);
+
+                // If we are removing a directed edge that has the opposite direction in the set.
+                if (!edgesRemaining.remove(dEdge) && !edgesRemaining.remove(dEdge.getReverse())) {
+                    Logger.warn("Walked along an edge not in the original shape: " + dEdge + ". Abandoning path.");
+                    result.clear();
+                    break;
+                }
+
                 result.add(dEdge);
-                Logger.debug("Added " + dEdge);
-                Logger.debug("New end: " + end);
+                Logger.debug("Added " + dEdge + ", new end: " + end);
             }
+
+            // If the inner loop was broken, result will be empty.
+            // Only process if we found a valid, closed loop.
+            if (result.isEmpty() || !end.equals(start)) {
+                continue;
+            }
+
             if (!firstShape || !edgesRemaining.isEmpty()) {
                 // Didn't cover all edges so new shapes are needed.
                 if (firstShape) {
@@ -104,10 +113,9 @@ public class SplitShapesStep extends ConvertStep {
                 if (shape instanceof TemporaryBuilding) {
                     newObject = new TemporaryBuilding(result, ((TemporaryBuilding)shape).getBuildingID());
                 }
-                map.addTemporaryObject(newObject);
-                //                debug.show("Splitting shapes",
-                //                           new TemporaryObjectInfo(shape, "Original shape", Constants.BLACK, null),
-                //                           new TemporaryObjectInfo(newObject, "New shape", Constants.RED, Constants.TRANSPARENT_RED));
+                if (newObject != null) {
+                    map.addTemporaryObject(newObject);
+                }
             }
         }
         return newShapeCount;

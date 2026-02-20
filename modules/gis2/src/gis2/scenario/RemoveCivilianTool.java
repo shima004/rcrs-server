@@ -1,5 +1,6 @@
 package gis2.scenario;
 
+import javax.swing.Icon;
 import javax.swing.undo.AbstractUndoableEdit;
 
 import maps.gml.GMLShape;
@@ -20,6 +21,11 @@ public class RemoveCivilianTool extends ShapeTool {
   @Override
   public String getName() {
     return "Remove civilian";
+  }
+
+  @Override
+  public Icon getIcon() {
+    return ToolIcons.REMOVE_CIVILIAN;
   }
 
   @Override

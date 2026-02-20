@@ -75,7 +75,7 @@ public class RescueProcess {
     public synchronized boolean start() {
 		try {
 			System.out.println("Executing "+commandline);
-			process = Runtime.getRuntime().exec(commandline);
+			process = Runtime.getRuntime().exec(commandline.split(" "));
 			InputStream output = process.getInputStream();
 			InputStream errors = process.getErrorStream();
 			// Create log files

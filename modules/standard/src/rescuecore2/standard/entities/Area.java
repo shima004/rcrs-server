@@ -1,9 +1,12 @@
 package rescuecore2.standard.entities;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.awt.Polygon;
 import java.awt.Shape;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.json.JSONObject;
 
@@ -304,9 +307,9 @@ public abstract class Area extends StandardEntity {
    */
   public List<EntityID> getNeighbours() {
     if ( neighbours == null ) {
-      neighbours = new ArrayList<EntityID>();
+      neighbours = new ArrayList<>();
       for ( Edge next : edges.getValue() ) {
-        if ( next.isPassable() ) {
+        if ( next.isPassable() && !neighbours.contains( next.getNeighbour() ) ) {
           neighbours.add( next.getNeighbour() );
         }
       }
@@ -330,6 +333,21 @@ public abstract class Area extends StandardEntity {
       }
     }
     return null;
+  }
+
+
+  /**
+   * Get the edges that cross to a particular neighbour.
+   *
+   * @param neighbour
+   *          The neighbour ID.
+   * @return A Set of all edges connecting to the given neighbour.
+   *         Returns an empty set if no such edges exist; this method never returns null.
+   */
+  public Set<Edge> getEdgesTo( EntityID neighbour ) {
+    return getEdges().stream()
+            .filter(edge -> neighbour.equals(edge.getNeighbour()))
+            .collect(Collectors.toUnmodifiableSet());
   }
 
 

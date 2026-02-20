@@ -38,23 +38,22 @@ public class ScanOSMStep extends ConvertStep {
 
     @Override
     protected void step() {
-        nodeToIntersection = new HashMap<OSMNode, OSMIntersectionInfo>();
-        intersections = new ArrayList<OSMIntersectionInfo>();
-        roads = new ArrayList<OSMRoadInfo>();
-        buildings = new ArrayList<OSMBuildingInfo>();
+        // Initialize local collections
+        nodeToIntersection = new HashMap<>();
+        intersections = new ArrayList<>();
+        roads = new ArrayList<>();
+        buildings = new ArrayList<>();
         OSMMap osm = map.getOSMMap();
+
         setProgressLimit(osm.getRoads().size() + osm.getBuildings().size());
-        setStatus("Scanning roads and buildings");
+        setStatus("Scanning OSM data to build road graph");
+
+        // Scan roads to build the graph structure (populates this.intersections and this.roads)
         scanRoads();
+
+        // Scan buildings
         scanBuildings();
-        double sizeOf1m = ConvertTools.sizeOf1Metre(osm);
-        setStatus("Generating intersections");
-        setProgressLimit(intersections.size());
-        setProgress(0);
-        for (OSMIntersectionInfo next : intersections) {
-            next.process(sizeOf1m);
-            bumpProgress();
-        }
+
         setStatus("Created " + roads.size() + " roads, " + intersections.size() + " intersections, " + buildings.size() + " buildings");
         map.setOSMInfo(intersections, roads, buildings);
     }

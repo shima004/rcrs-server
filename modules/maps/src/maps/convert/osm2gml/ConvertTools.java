@@ -26,6 +26,8 @@ import maps.osm.OSMNode;
 import maps.osm.OSMBuilding;
 import maps.MapTools;
 
+import java.awt.geom.Area;
+import java.awt.geom.PathIterator;
 import java.util.Set;
 import java.util.List;
 import java.util.Collection;
@@ -56,6 +58,16 @@ public final class ConvertTools {
     */
     public static double sizeOf1Metre(OSMMap map) {
         return MapTools.sizeOf1Metre(map.getCentreLatitude(), map.getCentreLongitude());
+    }
+
+    /**
+     * Compute the size of a given distance in meters in latitude/longitude for an OSMMap.
+     * @param map    The map to use for calculating the scale.
+     * @param metres The distance in metres to convert.
+     * @return The equivalent size in degrees.
+     */
+    public static double sizeOfMeters(OSMMap map, double metres) {
+        return sizeOf1Metre(map) * metres;
     }
 
     /**
@@ -456,4 +468,111 @@ public final class ConvertTools {
         }
         return d;
     }
+
+    /**
+     * Converts a java.awt.geom.Area into a list of TemporaryRoad objects.
+     * This method correctly handles multipart areas but ignores any internal holes.
+     * @param area     The Area to convert.
+     * @param original The original TemporaryObject, used to determine the correct type for the new objects.
+     * @param map      The TemporaryMap needed to create new nodes and edges.
+     * @return A list of new TemporaryRoad objects representing the outer contours of the Area.
+     */
+    public static List<TemporaryObject> areaToTemporaryPassableShapes(Area area, TemporaryObject original, TemporaryMap map) {
+        List<TemporaryObject> result = new ArrayList<>();
+        PathIterator it = area.getPathIterator(null);
+        double[] coords = new double[6];
+
+        while (!it.isDone()) {
+            List<DirectedEdge> currentPath = new ArrayList<>();
+            Node firstNode = null;
+            Node lastNode = null;
+
+            while (!it.isDone()) {
+                int type = it.currentSegment(coords);
+
+                if (type == PathIterator.SEG_MOVETO) {
+                    // This is the start of a new path. Initialize the start/end nodes.
+                    firstNode = map.getNode(coords[0], coords[1]);
+                    lastNode = firstNode;
+                }
+                else if (type == PathIterator.SEG_LINETO) {
+                    // Add a segment to the current path.
+                    Node nextNode = map.getNode(coords[0], coords[1]);
+                    if (lastNode != null && !lastNode.equals(nextNode)) {
+                        currentPath.add(map.getDirectedEdge(lastNode, nextNode));
+                    }
+                    lastNode = nextNode;
+                }
+                else if (type == PathIterator.SEG_CLOSE) {
+                    // This path is now complete. Finalize and add it to the results.
+                    if (firstNode != null && lastNode != null && !lastNode.equals(firstNode)) {
+                        currentPath.add(map.getDirectedEdge(lastNode, firstNode));
+                    }
+                    if (2 < currentPath.size()) {
+                        if (original instanceof TemporaryRoad) {
+                            result.add(new TemporaryRoad(currentPath));
+                        } else if (original instanceof TemporaryIntersection) {
+                            result.add(new TemporaryIntersection(currentPath));
+                        }
+                    }
+
+                    // Break the inner loop to start processing the next path (if any).
+                    break;
+                }
+                it.next();
+            }
+            it.next();
+        }
+        return result;
+    }
+
+    /**
+     * Calculate the geometric area of a java.awt.geom.Area object.
+     * This method correctly handles multipart areas and ignores holes.
+     * @param area The Area to measure.
+     * @return The total geometric area.
+     */
+    public static double getGeometricArea(Area area) {
+        if (area == null || area.isEmpty()) return 0.0;
+
+        PathIterator it = area.getPathIterator(null);
+        double totalArea = 0;
+
+        while (!it.isDone()) {
+            List<Point2D> currentPath = new ArrayList<>();
+            double[] coords = new double[6];
+
+            // Extract all points from the current sub-path of the Area
+            for (; !it.isDone(); it.next()) {
+                int type = it.currentSegment(coords);
+
+                if (type == PathIterator.SEG_MOVETO || type == PathIterator.SEG_LINETO) {
+                    currentPath.add(new Point2D(coords[0], coords[1]));
+                } else if (type == PathIterator.SEG_CLOSE) {
+                    // A SEG_CLOSE marks the end of a sub-path.
+                    double pathArea = calculatePathSignedArea(currentPath);
+                    totalArea += Math.abs(pathArea);
+
+                    // Reset for the next potential shape.
+                    currentPath.clear();
+                    break;
+                }
+            }
+            it.next();
+        }
+        return totalArea;
+    }
+
+    // Helper method to calculate the signed area of a single path using the Shoelace formula.
+    private static double calculatePathSignedArea(List<Point2D> path) {
+        if (path.size() < 3) return 0.0;
+        double areaSum = 0.0;
+        Point2D last = path.get(path.size() - 1);
+        for (Point2D current : path) {
+            areaSum += (last.getX() * current.getY()) - (current.getX() * last.getY());
+            last = current;
+        }
+        return areaSum / 2.0;
+    }
+
 }

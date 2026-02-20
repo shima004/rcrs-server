@@ -1,10 +1,7 @@
 package maps.convert.osm2gml;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Collections;
-import java.util.Comparator;
+import java.awt.geom.Rectangle2D;
+import java.util.*;
 
 import java.awt.geom.Area;
 import java.awt.geom.Path2D;
@@ -53,17 +50,29 @@ public class OSMIntersectionInfo implements OSMShape {
     }
 
     /**
+     * Clear the list of connected road segments.
+     * Used before rebuilding the intersection's connections after a merge.
+     */
+    public void clearRoadSegments() {
+        if (roads != null) {
+            roads.clear();
+        }
+    }
+
+    /**
        Process this intersection and determine the vertices and area it covers.
        @param sizeOf1m The size of 1m in latitude/longitude.
     */
     public void process(double sizeOf1m) {
-        vertices = new ArrayList<Point2D>();
-        if (roads.size() > 1) {
-            processRoads(sizeOf1m);
-        }
-        else {
+        vertices = new ArrayList<>();
+
+        if (roads == null || roads.isEmpty()) {
+            area = null;
+        } else if (roads.size() == 1) {
             processSingleRoad(sizeOf1m);
             area = null;
+        } else {
+            processRoads(sizeOf1m);
         }
     }
 
@@ -73,6 +82,29 @@ public class OSMIntersectionInfo implements OSMShape {
     */
     public OSMNode getCentre() {
         return centre;
+    }
+
+    /**
+     * Get the underlying OSMNode that represents the key point of this intersection.
+     * @return The underlying OSMNode.
+     */
+    public OSMNode getUnderlyingNode() {
+        return centre;
+    }
+
+    /**
+     * Get the representative geometric location of this intersection.
+     * If the intersection polygon has been processed, it returns the centroid of that polygon.
+     * Otherwise, it returns the location of the central OSMNode.
+     * @return The location as a Point2D.
+     */
+    public Point2D getLocation() {
+        if (area != null && !area.isEmpty()) {
+            Rectangle2D bounds = area.getBounds2D();
+            return new Point2D(bounds.getCenterX(), bounds.getCenterY());
+        }
+        // As a fallback, use the location of the central node.
+        return new Point2D(centre.getLongitude(), centre.getLatitude());
     }
 
     @Override
@@ -105,31 +137,48 @@ public class OSMIntersectionInfo implements OSMShape {
     }
 
     private void processRoads(double sizeOf1m) {
-        // Sort incoming roads counterclockwise about the centre
+        // Sort incoming roads counterclockwise about the centre.
         Point2D centrePoint = new Point2D(centre.getLongitude(), centre.getLatitude());
         CounterClockwiseSort sort = new CounterClockwiseSort(centrePoint);
-        Collections.sort(roads, sort);
-        // Go through each pair of adjacent incoming roads and compute the two intersection points
+        roads.sort(sort);
+
+        Map<RoadAspect, Point2D[]> roadMouths = new HashMap<>();
+        for (RoadAspect road : roads) {
+            roadMouths.put(road, calculateRoadMouth(road, centrePoint, sizeOf1m));
+        }
+
+        // Go through each pair of adjacent incoming roads and connect their mouths.
         Iterator<RoadAspect> it = roads.iterator();
         RoadAspect first = it.next();
         RoadAspect previous = first;
         while (it.hasNext()) {
             RoadAspect next = it.next();
-            Point2D p = findIncomingRoadIntersection(previous, next, centrePoint, sizeOf1m);
-            vertices.add(p);
+            // Add the right corner of the previous road's mouth
+            vertices.add(roadMouths.get(previous)[1]);
+            // Add the left corner of the next road's mouth
+            vertices.add(roadMouths.get(next)[0]);
+
+            // Connect the two corners
+            previous.setRightEnd(roadMouths.get(previous)[1]);
+            next.setLeftEnd(roadMouths.get(next)[0]);
+
             previous = next;
         }
-        Point2D p = findIncomingRoadIntersection(previous, first, centrePoint, sizeOf1m);
-        vertices.add(p);
+        // Connect the last road back to the first one
+        vertices.add(roadMouths.get(previous)[1]);
+        vertices.add(roadMouths.get(first)[0]);
+        previous.setRightEnd(roadMouths.get(previous)[1]);
+        first.setLeftEnd(roadMouths.get(first)[0]);
+
         // If there are multiple vertices then compute the area
         if (vertices.size() > 2) {
-            Iterator<Point2D> ix = vertices.iterator();
-            Point2D point = ix.next();
             Path2D.Double path = new Path2D.Double();
-            path.moveTo(point.getX(), point.getY());
+            Iterator<Point2D> ix = vertices.iterator();
+            Point2D p = ix.next();
+            path.moveTo(p.getX(), p.getY());
             while (ix.hasNext()) {
-                point = ix.next();
-                path.lineTo(point.getX(), point.getY());
+                p = ix.next();
+                path.lineTo(p.getX(), p.getY());
             }
             path.closePath();
             area = new Area(path.createTransformedShape(null));
@@ -139,51 +188,31 @@ public class OSMIntersectionInfo implements OSMShape {
         }
     }
 
-    /**
-       Process two incoming roads and find the intersection of the right edge of the first road and the left edge of the second road.
-       @param first The road to check the right edge of.
-       @param second The road the check the left edge of.
-       @param centrePoint The centre of the intersection.
-       @return The intersection of the two roads.
-    */
-    private Point2D findIncomingRoadIntersection(RoadAspect first, RoadAspect second, Point2D centrePoint, double sizeOf1m) {
-        OSMNode firstNode = first.getFarNode();
-        OSMNode secondNode = second.getFarNode();
-        // Find the intersection of the incoming road edges
-        Point2D firstPoint = new Point2D(firstNode.getLongitude(), firstNode.getLatitude());
-        Point2D secondPoint = new Point2D(secondNode.getLongitude(), secondNode.getLatitude());
-        Vector2D firstVector = centrePoint.minus(firstPoint);
-        Vector2D secondVector = centrePoint.minus(secondPoint);
-        Vector2D firstNormal = firstVector.getNormal().normalised().scale(-Constants.ROAD_WIDTH * sizeOf1m / 2);
-        Vector2D secondNormal = secondVector.getNormal().normalised().scale(Constants.ROAD_WIDTH * sizeOf1m / 2);
-        Point2D start1Point = firstPoint.plus(firstNormal);
-        Point2D start2Point = secondPoint.plus(secondNormal);
-        Line2D line1 = new Line2D(start1Point, firstVector);
-        Line2D line2 = new Line2D(start2Point, secondVector);
-        Point2D intersection = GeometryTools2D.getIntersectionPoint(line1, line2);
-        if (intersection == null) {
-            // Lines are parallel
-            // This means the normals are parallel, so we can just add a normal to the centre point to generate an intersection point
-            intersection = centrePoint.plus(firstNormal);
-        }
-        first.setRightEnd(intersection);
-        second.setLeftEnd(intersection);
+    private Point2D[] calculateRoadMouth(RoadAspect road, Point2D centrePoint, double sizeOf1m) {
+        OSMNode farNode = road.getFarNode();
+        Point2D farPoint = new Point2D(farNode.getLongitude(), farNode.getLatitude());
 
-        /*
-          List<ShapeDebugFrame.ShapeInfo> shapes = new ArrayList<ShapeDebugFrame.ShapeInfo>();
-          shapes.add(new ShapeDebugFrame.Line2DShapeInfo(new Line2D(firstPoint, centrePoint), "First road", Color.BLUE, false, false));
-          shapes.add(new ShapeDebugFrame.Line2DShapeInfo(new Line2D(firstPoint, firstNormal), "First road offset", Color.YELLOW, false, false));
-          shapes.add(new ShapeDebugFrame.Point2DShapeInfo(start1Point, "Left start", Color.BLUE, true));
-          shapes.add(new ShapeDebugFrame.Line2DShapeInfo(line1, "Left edge", Color.BLUE, true, false));
-          shapes.add(new ShapeDebugFrame.Line2DShapeInfo(new Line2D(secondPoint, centrePoint), "Second road", Color.WHITE, false, false));
-          shapes.add(new ShapeDebugFrame.Line2DShapeInfo(new Line2D(secondPoint, secondNormal), "Second road offset", Color.CYAN, false, false));
-          shapes.add(new ShapeDebugFrame.Point2DShapeInfo(start2Point, "Right start", Color.WHITE, true));
-          shapes.add(new ShapeDebugFrame.Line2DShapeInfo(line2, "Right edge", Color.WHITE, true, false));
-          shapes.add(new ShapeDebugFrame.Point2DShapeInfo(intersection, "Intersection", Color.ORANGE, true));
-          debug.show("Intersection", shapes);
-        */
+        // roadVector points FROM the far node TO the centre point.
+        Vector2D roadVector = centrePoint.minus(farPoint);
 
-        return intersection;
+        // Calculate the total length of the road segment.
+        double roadLength = roadVector.getLength();
+
+        // Determine the distance of the "mouth" from the centre.
+        double desiredMouthDistance = Constants.ROAD_WIDTH * sizeOf1m * 1.5;
+        double actualMouthDistance = Math.min(desiredMouthDistance, roadLength * 0.45);
+
+        // Calculated the mouth's centre point using the *actual* safe distance.
+        Vector2D oppositeVector = roadVector.scale(-1);
+        Point2D mouthCentre = centrePoint.plus(oppositeVector.normalised().scale(actualMouthDistance));
+
+        // Calculate the left and right corners of the mouth.
+        Vector2D roadNormal = roadVector.getNormal().normalised().scale(Constants.ROAD_WIDTH * sizeOf1m / 2.0);
+
+        Point2D leftCorner = mouthCentre.plus(roadNormal);
+        Point2D rightCorner = mouthCentre.plus(roadNormal.scale(-1));
+
+        return new Point2D[]{leftCorner, rightCorner};
     }
 
     /**
