@@ -44,3 +44,6 @@ package-lock.json
 logs
 jars
 lib
+
+maps
+rescue-log
