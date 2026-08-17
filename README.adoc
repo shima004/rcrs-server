@@ -64,6 +64,28 @@ $ cd scripts
 $ ./start.sh -m ../maps/test/map -c ../maps/test/config
 ```
 
+=== Run with Docker
+
+Release images are published to the GitHub Container Registry. The default
+container command starts a headless competition run:
+
+```bash
+
+$ docker run --rm -p 27931:27931 ghcr.io/shima004/rcrs-server:latest
+```
+
+Launcher arguments can be supplied after the image name:
+
+```bash
+
+$ docker run --rm -p 27931:27931 \
+    -v rcrs-logs:/opt/rcrs-server/logs \
+    ghcr.io/shima004/rcrs-server:latest \
+    comprun --nogui --memory kernel=4g
+```
+
+The image is built with OpenJDK 21 whenever a GitHub Release is published.
+
 == Tools
 
 === Map Editor
