@@ -1,6 +1,5 @@
 package traffic3.simulator;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -20,8 +19,6 @@ import rescuecore2.misc.geometry.GeometryTools2D;
 import rescuecore2.misc.geometry.Line2D;
 import rescuecore2.misc.geometry.Point2D;
 import rescuecore2.misc.geometry.Vector2D;
-import rescuecore2.misc.gui.ShapeDebugFrame;
-import rescuecore2.misc.gui.ShapeDebugFrame.Line2DShapeInfo;
 import rescuecore2.standard.components.StandardSimulator;
 import rescuecore2.standard.entities.AmbulanceTeam;
 import rescuecore2.standard.entities.Area;
@@ -462,35 +459,10 @@ public class TrafficSimulator extends StandardSimulator implements GUIComponent 
       start = new Point2D(human.getX(), human.getY());
     else
       start = getBestPoint(lastEdge, lastArea);
-    Point2D startpoint;
-    if (lastEdge == null)
-      startpoint = start;
-    else
-      startpoint = getMidPoint(lastEdge.getStart(), lastEdge.getEnd());
     Point2D edgePoint = getBestPoint(nextEdge, nextArea);
-    Point2D centrePoint = new Point2D(lastArea.getX(), lastArea.getY());
-
-    List<ShapeDebugFrame.ShapeInfo> resultGraph = new ArrayList<ShapeDebugFrame.ShapeInfo>();
-
-    resultGraph.add(
-        new Line2DShapeInfo(new Line2D(startpoint, centrePoint), "path start to center", Color.black, false, true));
-    resultGraph.add(new Line2DShapeInfo(new Line2D(centrePoint, getMidPoint(nextEdge.getStart(), nextEdge.getEnd())),
-        "path center to end", Color.white, false, true));
-
     TrafficArea trafficArea = manager.getTrafficArea(lastArea);
-    int[][] graph = manager.getTrafficArea(lastArea).getGraph();
-    List<Line2D> oLines = manager.getTrafficArea(lastArea).getOpenLines();
-    List<Line2D> graphline = new ArrayList<>();
-    resultGraph.add(new Line2DShapeInfo(oLines, "openLines", Color.green, false, false));
-    for (int i = 0; i < graph.length; i++) {
-      for (int j = 0; j < graph.length; j++) {
-        if (graph[i][j] > 10000)
-          continue;
-        Line2D line = new Line2D(getMidPoint(oLines.get(i).getOrigin(), oLines.get(i).getEndPoint()),
-            getMidPoint(oLines.get(j).getOrigin(), oLines.get(j).getEndPoint()));
-        graphline.add(line);
-      }
-    }
+    int[][] graph = trafficArea.getGraph();
+    List<Line2D> oLines = trafficArea.getOpenLines();
 
     int src = trafficArea.getNearestLineIndex(start);
     int end = trafficArea.getNearestLineIndex(edgePoint);
