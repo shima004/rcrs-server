@@ -125,6 +125,25 @@ public class TrafficManager {
 
 
   /**
+   * Get mobile neighbours within the square used by the agent-force cutoff.
+   * Area adjacency remains a requirement, even when other areas are close.
+   */
+  public Collection<TrafficAgent> getNearbyAgents(TrafficAgent agent, double cutoff) {
+    Set<TrafficAgent> result = new HashSet<>();
+    TrafficArea area = agent.getArea();
+    if (area == null) {
+      return result;
+    }
+    area.collectNearbyAgents(agent.getX(), agent.getY(), cutoff, result);
+    for (TrafficArea next : getNeighbours(area)) {
+      next.collectNearbyAgents(agent.getX(), agent.getY(), cutoff, result);
+    }
+    result.remove(agent);
+    return result;
+  }
+
+
+  /**
    * Remove all objects from this manager.
    */
   public void clear() {

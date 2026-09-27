@@ -32,6 +32,7 @@ public class TrafficArea {
 	// private List<TrafficAreaListener> areaListenerList = new
 	// ArrayList<TrafficAreaListener>();
 	private Collection<TrafficAgent> agents;
+	private final AgentGrid agentGrid = new AgentGrid();
 	private Collection<TrafficBlockade> blocks;
 
 	private List<Line2D> blockingLines;
@@ -168,6 +169,7 @@ public class TrafficArea {
 	 */
 	public void addAgent(TrafficAgent agent) {
 		agents.add(agent);
+		agentGrid.add(agent);
 	}
 
 	/**
@@ -178,6 +180,19 @@ public class TrafficArea {
 	 */
 	public void removeAgent(TrafficAgent agent) {
 		agents.remove(agent);
+		agentGrid.remove(agent);
+	}
+
+	/** Update the spatial index before the agent's coordinates change. */
+	public void moveAgent(TrafficAgent agent, double x, double y) {
+		if (agents.contains(agent)) {
+			agentGrid.move(agent, x, y);
+		}
+	}
+
+	/** Collect mobile agents within the square force cutoff. */
+	public void collectNearbyAgents(double x, double y, double cutoff, Collection<TrafficAgent> result) {
+		agentGrid.collect(x, y, cutoff, agents, result);
 	}
 
 	/**

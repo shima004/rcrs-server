@@ -506,6 +506,7 @@ public class TrafficAgent {
 			double dy = y - location[1];
 			totalDistance += Math.hypot(dx, dy);
 		}
+		currentArea.moveAgent(this, x, y);
 		location[0] = x;
 		location[1] = y;
 	}
@@ -947,7 +948,7 @@ public class TrafficAgent {
 		double k = TrafficConstants.getAgentForceCoefficientK();
 		double forceLimit = TrafficConstants.getAgentForceLimit();
 
-		Collection<TrafficAgent> nearby = manager.getNearbyAgents(this);
+		Collection<TrafficAgent> nearby = manager.getNearbyAgents(this, cutoff);
 		for (TrafficAgent agent : nearby) {
 			if (!agent.isMobile()) {
 				continue;
