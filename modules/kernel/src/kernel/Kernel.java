@@ -483,20 +483,36 @@ public class Kernel {
 	private void sendAgentUpdates(Timestep timestep,
 			Collection<Command> commandsLastTimestep)
 			throws InterruptedException, KernelException, LogException {
+		long phaseStart = System.nanoTime();
 		perception.setTime(time);
 		communicationModel.process(time, commandsLastTimestep);
+		long setupNanos = System.nanoTime() - phaseStart;
+		long visibilityNanos = 0, hearingNanos = 0, logNanos = 0, sendNanos = 0;
 		for (AgentProxy next : agents) {
 			if (Thread.interrupted()) {
 				throw new InterruptedException();
 			}
+			phaseStart = System.nanoTime();
 			ChangeSet visible = perception.getVisibleEntities(next);
+			visibilityNanos += System.nanoTime() - phaseStart;
+			phaseStart = System.nanoTime();
 			Collection<Command> heard = communicationModel
 					.getHearing(next.getControlledEntity());
 			EntityID id = next.getControlledEntity().getID();
 			timestep.registerPerception(id, visible, heard);
+			hearingNanos += System.nanoTime() - phaseStart;
+			phaseStart = System.nanoTime();
 			log.writeRecord(new PerceptionRecord(time, id, visible, heard));
+			logNanos += System.nanoTime() - phaseStart;
+			phaseStart = System.nanoTime();
 			next.sendPerceptionUpdate(time, visible, heard);
+			sendNanos += System.nanoTime() - phaseStart;
 		}
+		Logger.debug("Perception breakdown (ms): setup=" + setupNanos / 1_000_000.0
+				+ ", visibility=" + visibilityNanos / 1_000_000.0
+				+ ", hearing/register=" + hearingNanos / 1_000_000.0
+				+ ", log=" + logNanos / 1_000_000.0
+				+ ", send=" + sendNanos / 1_000_000.0);
 	}
 
 	private Collection<Command> waitForCommands(int timestep)
