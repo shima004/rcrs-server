@@ -4,10 +4,10 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.HashMap;
 
 import kernel.Perception;
 import kernel.AgentProxy;
@@ -83,6 +83,8 @@ public class LineOfSightPerception implements Perception, GUIComponent {
     private int hpPrecision;
     private int damagePrecision;
     private int rayCount;
+    private Vector2D[] rayDirections;
+    private LineOfSightRayIndex rayIndex;
 
     private StandardWorldModel world;
     private Config config;
@@ -103,6 +105,13 @@ public class LineOfSightPerception implements Perception, GUIComponent {
         hpPrecision = config.getIntValue(HP_PRECISION_KEY, DEFAULT_HP_PRECISION);
         damagePrecision = config.getIntValue(DAMAGE_PRECISION_KEY, DEFAULT_DAMAGE_PRECISION);
         rayCount = config.getIntValue(RAY_COUNT_KEY, DEFAULT_RAY_COUNT);
+        rayDirections = new Vector2D[Math.max(0, rayCount)];
+        double dAngle = Math.PI * 2 / rayCount;
+        for (int i = 0; i < rayDirections.length; i++) {
+            double angle = i * dAngle;
+            rayDirections[i] = new Vector2D(Math.sin(angle), Math.cos(angle)).scale(viewDistance);
+        }
+        rayIndex = null;
         view = null;
     }
 
@@ -127,6 +136,7 @@ public class LineOfSightPerception implements Perception, GUIComponent {
 
     @Override
     public void setTime(int timestep) {
+        rayIndex = null;
         if (view != null) {
             view.clear();
             view.refresh();
@@ -302,16 +312,18 @@ public class LineOfSightPerception implements Perception, GUIComponent {
     private Collection<StandardEntity> findVisible(StandardEntity agentEntity, Point2D location, Collection<StandardEntity> nearby) {
         Logger.debug("Finding visible entities from " + location);
         Logger.debug(nearby.size() + " nearby entities");
-        Collection<LineInfo> lines = getAllLines(nearby);
-        // Cast rays
-        // CHECKSTYLE:OFF:MagicNumber
-        double dAngle = Math.PI * 2 / rayCount;
-        // CHECKSTYLE:ON:MagicNumber
+        if (rayIndex == null) {
+            rayIndex = new LineOfSightRayIndex(getAllLines(world.getAllEntities()));
+        }
+        Map<StandardEntity, Integer> entityOrder = new HashMap<>();
+        for (StandardEntity entity : nearby) {
+            entityOrder.put(entity, entityOrder.size());
+        }
+        // Cast the same rays, testing only spatially overlapping edges.
         Collection<StandardEntity> result = new HashSet<StandardEntity>();
         for (int i = 0; i < rayCount; ++i) {
-            double angle = i * dAngle;
-            Vector2D vector = new Vector2D(Math.sin(angle), Math.cos(angle)).scale(viewDistance);
-            Ray ray = new Ray(new Line2D(location, vector), lines);
+            Line2D segment = new Line2D(location, rayDirections[i]);
+            Ray ray = new Ray(segment, rayIndex.candidates(segment, entityOrder));
             for (LineInfo hit : ray.getLinesHit()) {
                 StandardEntity e = hit.getEntity();
                 result.add(e);
@@ -324,7 +336,7 @@ public class LineOfSightPerception implements Perception, GUIComponent {
         for (StandardEntity next : nearby) {
             if (next instanceof Human) {
                 Human h = (Human)next;
-                if (canSee(agentEntity, location, h, lines)) {
+                if (canSee(agentEntity, location, h, entityOrder)) {
                     result.add(h);
                 }
             }
@@ -335,12 +347,16 @@ public class LineOfSightPerception implements Perception, GUIComponent {
         return result;
     }
 
-    private boolean canSee(StandardEntity agent, Point2D location, Human h, Collection<LineInfo> lines) {
+    private boolean canSee(StandardEntity agent, Point2D location, Human h, Map<StandardEntity, Integer> entityOrder) {
         if (h.isXDefined() && h.isYDefined()) {
             int x = h.getX();
             int y = h.getY();
             Point2D humanLocation = new Point2D(x, y);
-            Ray ray = new Ray(new Line2D(location, humanLocation), lines);
+            Line2D segment = new Line2D(location, humanLocation);
+            if (view == null) {
+                return rayIndex.isVisible(segment, entityOrder);
+            }
+            Ray ray = new Ray(segment, rayIndex.candidates(segment, entityOrder));
             if (ray.getVisibleLength() >= 1) {
                 if (view != null) {
                     view.addRay(agent, ray);
@@ -354,28 +370,28 @@ public class LineOfSightPerception implements Perception, GUIComponent {
             }
             Entity e = world.getEntity(h.getPosition());
             if (e instanceof AmbulanceTeam) {
-                return canSee(agent, location, (Human)e, lines);
+                return canSee(agent, location, (Human)e, entityOrder);
             }
         }
         return false;
     }
 
     private Collection<LineInfo> getAllLines(Collection<StandardEntity> entities) {
-        Collection<LineInfo> result = new LinkedList<LineInfo>();
+        Collection<LineInfo> result = new ArrayList<LineInfo>();
         for (StandardEntity next : entities) {
-            if (next instanceof Building) {
+            if (next instanceof Building && ((Building)next).isEdgesDefined()) {
                 for (Edge edge : ((Building)next).getEdges()) {
                     Line2D line = edge.getLine();
                     result.add(new LineInfo(line, next, !edge.isPassable()));
                 }
             }
-            if (next instanceof Road) {
+            if (next instanceof Road && ((Road)next).isEdgesDefined()) {
                 for (Edge edge : ((Road)next).getEdges()) {
                     Line2D line = edge.getLine();
                     result.add(new LineInfo(line, next, false));
                 }
             }
-            else if (next instanceof Blockade) {
+            else if (next instanceof Blockade && ((Blockade)next).isApexesDefined()) {
                 int[] apexes = ((Blockade)next).getApexes();
                 List<Point2D> points = GeometryTools2D.vertexArrayToPoints(apexes);
                 List<Line2D> lines = GeometryTools2D.pointsToLines(points, true);
@@ -390,7 +406,7 @@ public class LineOfSightPerception implements Perception, GUIComponent {
         return result;
     }
 
-    private static class Ray {
+    static class Ray {
         /** The ray itself. */
         private Line2D ray;
         /** The visible length of the ray. */
@@ -435,7 +451,7 @@ public class LineOfSightPerception implements Perception, GUIComponent {
         }
     }
 
-    private static class LineInfo {
+    static class LineInfo {
         private Line2D line;
         private StandardEntity entity;
         private boolean blocking;
