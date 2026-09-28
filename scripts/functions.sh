@@ -61,6 +61,7 @@ function printUsage {
   echo "-l    --log       <logdir>    Set the log directory. Default: \"logs/log\""
   echo "-s    --timestamp             Create a log sub-directory including timestamp, team name and map name"
   echo "-g    --nogui                 Disable GUI"
+  echo "      --hide-gui <names>      Hide selected windows (comma-separated: kernel,misc,traffic,collapse,clear,fire,ignition,viewer)"
   echo "-j    --jlog                  Enable Jlog Recorder (startViewerEventLogger)"
   echo "-r    --jlog-dir <jlog_dir>   Set Jlog Recorder log dir. Default: \"logs/jlog\""
   echo "[+|-]x                        Enable/Disable XTerm use. Default: \"Disable\""
@@ -75,6 +76,7 @@ function processArgs {
   TEAM=""
   TIMESTAMP_LOGS=""
   NOGUI="no"
+  HIDDEN_GUI=""
   JLOG_RECORD="no"
   XTERM="no"
 
@@ -111,6 +113,22 @@ function processArgs {
       -g | --nogui)
         NOGUI="yes"
         shift
+        ;;
+      --hide-gui)
+        if [[ -z "$2" ]]; then
+          echo "--hide-gui requires comma-separated component names" >&2
+          exit 1
+        fi
+        local components component
+        IFS=',' read -r -a components <<< "$2"
+        for component in "${components[@]}"; do
+          case "$component" in
+            kernel|misc|traffic|collapse|clear|fire|ignition|viewer) ;;
+            *) echo "Unknown GUI component: $component" >&2; exit 1 ;;
+          esac
+        done
+        HIDDEN_GUI="${HIDDEN_GUI:+$HIDDEN_GUI,}$2"
+        shift 2
         ;;
       -x)
         XTERM="no"
@@ -173,12 +191,24 @@ function execute {
   PIDS="$PIDS $!"
 }
 
+# Display policy only: hiding a simulator GUI does not stop its simulation.
+function guiEnabled {
+  [[ ${NOGUI:-no} != "yes" ]] || return 1
+  case ",${HIDDEN_GUI:-}," in
+    *,"$1",*) return 1 ;;
+  esac
+  return 0
+}
+
+function guiOption {
+  if ! guiEnabled "$1"; then
+    printf '%s' '--nogui'
+  fi
+}
+
 # Start the kernel
 function startKernel {
-  GUI_OPTION=""
-  if [[ $NOGUI == "yes" ]]; then
-    GUI_OPTION="--nogui"
-  fi
+  GUI_OPTION=$(guiOption kernel)
 
   KERNEL_OPTIONS="-c $CONFIGDIR/kernel.cfg --gis.map.dir=$MAP --kernel.logname=$LOGDIR/rescue.log.7z $GUI_OPTION $*"
   makeClasspath $BASEDIR/jars $BASEDIR/lib
@@ -190,35 +220,30 @@ function startKernel {
 
 # Start the simulators
 function startSims {
-  GUI_OPTION=""
-  if [[ $NOGUI == "yes" ]]; then
-    GUI_OPTION="--nogui"
-  fi
-
   makeClasspath $BASEDIR/lib
 
   # Execute the simulators
-  execute misc "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/misc.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents misc.MiscSimulator -c $CONFIGDIR/misc.cfg $GUI_OPTION $*"
+  execute misc "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/misc.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents misc.MiscSimulator -c $CONFIGDIR/misc.cfg $(guiOption misc) $*"
   echo "waiting for misc to connect..."
   waitFor $LOGDIR/misc-out.log "success"
 
-  execute traffic "java -Xmx1024m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/traffic3.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents traffic3.simulator.TrafficSimulator -c $CONFIGDIR/traffic3.cfg $GUI_OPTION $*"
+  execute traffic "java -Xmx1024m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/traffic3.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents traffic3.simulator.TrafficSimulator -c $CONFIGDIR/traffic3.cfg $(guiOption traffic) $*"
   echo "waiting for traffic to connect..."
   waitFor $LOGDIR/traffic-out.log "success"
 
-  # execute fire "java -Xmx1024m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/resq-fire.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents firesimulator.FireSimulatorWrapper -c $CONFIGDIR/resq-fire.cfg $GUI_OPTION $*"
+  # execute fire "java -Xmx1024m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/resq-fire.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents firesimulator.FireSimulatorWrapper -c $CONFIGDIR/resq-fire.cfg $(guiOption fire) $*"
   # echo "waiting for fire to connect..."
   # waitFor $LOGDIR/fire-out.log "success"
 
-  # execute ignition "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/ignition.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents ignition.IgnitionSimulator -c $CONFIGDIR/ignition.cfg $GUI_OPTION $*"
+  # execute ignition "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/ignition.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents ignition.IgnitionSimulator -c $CONFIGDIR/ignition.cfg $(guiOption ignition) $*"
   # echo "waiting for ignition to connect..."
   # waitFor $LOGDIR/ignition-out.log "success"
 
-  execute collapse "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/collapse.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents collapse.CollapseSimulator -c $CONFIGDIR/collapse.cfg $GUI_OPTION $*"
+  execute collapse "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/collapse.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents collapse.CollapseSimulator -c $CONFIGDIR/collapse.cfg $(guiOption collapse) $*"
   echo "waiting for collapse to connect..."
   waitFor $LOGDIR/collapse-out.log "success"
 
-  execute clear "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/clear.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents clear.ClearSimulator -c $CONFIGDIR/clear.cfg $GUI_OPTION $*"
+  execute clear "java -Xmx512m -cp $CP:$BASEDIR/jars/rescuecore2.jar:$BASEDIR/jars/standard.jar:$BASEDIR/jars/clear.jar -Dlog4j.log.dir=$LOGDIR rescuecore2.LaunchComponents clear.ClearSimulator -c $CONFIGDIR/clear.cfg $(guiOption clear) $*"
   echo "waiting for clear to connect..."
   waitFor $LOGDIR/clear-out.log "success"
 
@@ -227,7 +252,7 @@ function startSims {
 
 # Start the viewer
 function startViewer {
-  if [[ $NOGUI == "yes" ]]; then
+  if ! guiEnabled viewer; then
     return 0
   fi
 

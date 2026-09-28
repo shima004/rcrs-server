@@ -62,12 +62,19 @@ if (( selection == 0 )); then
 else
     mode=precompute
 fi
-choose 'GUIの有無を選択してください' 'GUIあり' 'GUIなし'
+if [[ $mode == comprun ]]; then
+    choose '表示するウィンドウを選択してください' 'GUIあり（すべて表示）' 'GUIなし' '地図ビューアのみ'
+else
+    choose 'GUIの有無を選択してください' 'GUIあり' 'GUIなし'
+fi
 gui_options=()
 gui_label=あり
 if (( selection == 1 )); then
     gui_options=(--nogui)
     gui_label=なし
+elif (( selection == 2 )); then
+    gui_options=(--hide-gui kernel,misc,traffic,collapse,clear,fire,ignition)
+    gui_label='：地図ビューアのみ'
 fi
 
 launcher="$script_dir/start-$mode.sh"

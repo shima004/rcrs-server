@@ -64,6 +64,18 @@ $ cd scripts
 $ ./start.sh -m ../maps/test/map -c ../maps/test/config
 ```
 
+Run `./scripts/map-select.sh` from the repository root to select a map and run
+mode interactively. For a competition run, choose `地図ビューアのみ` to display
+only the map viewer while all simulators continue running without their windows.
+The Bash launchers also accept `--hide-gui` with comma-separated component names:
+
+```bash
+$ cd scripts
+$ ./start-comprun.sh --hide-gui kernel,misc,traffic,collapse,clear,fire,ignition
+```
+
+Use `--nogui` to hide all windows, including the viewer.
+
 === Run with Docker
 
 Release images are published to the GitHub Container Registry. The default
