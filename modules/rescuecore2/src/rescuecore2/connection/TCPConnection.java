@@ -2,6 +2,7 @@ package rescuecore2.connection;
 
 import java.net.Socket;
 import java.io.IOException;
+import java.io.BufferedOutputStream;
 
 import rescuecore2.log.Logger;
 
@@ -36,9 +37,14 @@ public class TCPConnection extends StreamConnection {
        @throws IOException If there is a problem opening the streams.
     */
     public TCPConnection(Socket socket) throws IOException {
-        super(socket.getInputStream(), socket.getOutputStream());
+        // The length prefix is written byte by byte. Buffer it with the payload
+        // so one logical message does not become several small TCP writes.
+        super(socket.getInputStream(), new BufferedOutputStream(socket.getOutputStream()));
         this.socket = socket;
         socket.setSoTimeout(1000);
+        // Kernel/simulator RPCs need a prompt reply even when the previous
+        // message has not yet been acknowledged. Each message is flushed.
+        socket.setTcpNoDelay(true);
         setName("TCPConnection: local port " + socket.getLocalPort() + ", endpoint = " + socket.getInetAddress() + ":" + socket.getPort());
     }
 

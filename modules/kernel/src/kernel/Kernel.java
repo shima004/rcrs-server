@@ -383,7 +383,10 @@ public class Kernel {
 				ChangeSet changes = sendCommandsToSimulators(time, commands);
 				// simulatorUpdates.show(changes);
 				nextTimestep.setChangeSet(changes);
+				long updateLogStart = System.nanoTime();
 				log.writeRecord(new UpdatesRecord(time, changes));
+				Logger.debug("Simulator update log (ms): "
+						+ (System.nanoTime() - updateLogStart) / 1_000_000.0);
 				long updatesTime = System.currentTimeMillis();
 				// Merge updates into world model
 				worldModel.merge(changes);
