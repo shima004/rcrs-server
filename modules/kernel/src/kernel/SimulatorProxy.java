@@ -24,6 +24,7 @@ import java.util.ArrayList;
  */
 public class SimulatorProxy extends AbstractKernelComponent {
     private Map<Integer, ChangeSet> updates;
+    private final Map<Integer, Long> commandSentTimes = new HashMap<>();
     private int id;
     private EntityIDGenerator idGenerator;
 
@@ -74,6 +75,9 @@ public class SimulatorProxy extends AbstractKernelComponent {
        @param commands The agent commands to send.
     */
     public void sendAgentCommands(int time, Collection<? extends Command> commands) {
+        synchronized (updates) {
+            commandSentTimes.put(time, System.nanoTime());
+        }
         send(new KSCommands(id, time, commands));
     }
 
@@ -96,7 +100,10 @@ public class SimulatorProxy extends AbstractKernelComponent {
        @param changes The set of changes.
     */
     protected void updateReceived(int time, ChangeSet changes) {
+        Long sent;
+        long received = System.nanoTime();
         synchronized (updates) {
+            sent = commandSentTimes.remove(time);
             ChangeSet c = updates.get(time);
             if (c == null) {
                 c = new ChangeSet();
@@ -104,6 +111,10 @@ public class SimulatorProxy extends AbstractKernelComponent {
             }
             c.merge(changes);
             updates.notifyAll();
+        }
+        if (sent != null) {
+            Logger.debug("Simulator response (ms): name=" + getName() + ", id=" + id
+                    + ", time=" + time + ", elapsed=" + (received - sent) / 1_000_000.0);
         }
     }
 
