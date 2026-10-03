@@ -179,3 +179,29 @@ scenario, especially with the LOS GUI active.
 Rebuild with `./gradlew test launcherJar standardJar kernelJar rescuecore2Jar exportLibs`
 and restart the server to load the updated JARs. Compare both visibility and log
 in the same running scenario using the kernel's phase timing.
+
+## Per-timestep LOS phase diagnostics
+
+The kernel now emits one `LOS breakdown (ms)` DEBUG line immediately before
+`Perception breakdown (ms)`. Counters reset in `setTime`; durations are summed
+across the agents actually processed by the kernel, with no per-ray clock calls.
+
+| Field | Measured work |
+| --- | --- |
+| nearby | Observer location and range lookup, including lazy world spatial indexing |
+| index | World edge collection and shared ray-tree construction (once per timestep), plus index availability checks |
+| order | Nearby-entity order map and initial visible set allocation |
+| rays | All geometry rays: candidate traversal, intersection tests and visible-entity collection; GUI ray storage when active |
+| humans | Iteration over nearby entities and human visibility tests |
+| properties | Visible-entity property generation, including extra refuge information for ambulance centres |
+| other | Outer visibility total minus the phases above: debug formatting/output, repaint scheduling, remaining bookkeeping and timing overhead |
+| total | The same accumulated getVisibleEntities duration as the kernel's visibility field |
+
+`observers` counts calls; `nearbyEntities` and `humanChecks` count cumulative
+nearby entries/human checks across observers, not distinct entities.
+`geometryRays` counts geometry rays, excluding human visibility rays.
+`guiObservers` counts calls with LOS visualization active; a nonzero value means
+the GUI ray path was used. `time` identifies the simulation timestep.
+These timings measure wall time and can include GC or scheduling pauses. Compare
+several warmed-up steps with similar counts before deciding which phase dominates.
+Rebuild and restart the server; the existing DEBUG logging configuration suffices.

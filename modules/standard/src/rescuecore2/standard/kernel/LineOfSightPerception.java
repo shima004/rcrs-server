@@ -90,6 +90,9 @@ public class LineOfSightPerception implements Perception, GUIComponent {
     private Config config;
 
     private LOSView view;
+    private long nearbyNanos, indexNanos, orderNanos, raysNanos, humansNanos, propertiesNanos;
+    private long observers, nearbyEntities, humanChecks, geometryRays, guiObservers;
+    private int timingTimestep;
 
     /**
        Create a LineOfSightPerception object.
@@ -137,6 +140,9 @@ public class LineOfSightPerception implements Perception, GUIComponent {
     @Override
     public void setTime(int timestep) {
         rayIndex = null;
+        timingTimestep = timestep;
+        nearbyNanos = indexNanos = orderNanos = raysNanos = humansNanos = propertiesNanos = 0;
+        observers = nearbyEntities = humanChecks = geometryRays = guiObservers = 0;
         if (view != null) {
             view.clear();
             view.refresh();
@@ -144,16 +150,39 @@ public class LineOfSightPerception implements Perception, GUIComponent {
     }
 
     @Override
+    public void logTimingBreakdown(long totalNanos) {
+        long measured = nearbyNanos + indexNanos + orderNanos + raysNanos + humansNanos + propertiesNanos;
+        Logger.debug("LOS breakdown (ms): time=" + timingTimestep
+                + ", nearby=" + nearbyNanos / 1_000_000.0
+                + ", index=" + indexNanos / 1_000_000.0
+                + ", order=" + orderNanos / 1_000_000.0
+                + ", rays=" + raysNanos / 1_000_000.0
+                + ", humans=" + humansNanos / 1_000_000.0
+                + ", properties=" + propertiesNanos / 1_000_000.0
+                + ", other=" + (totalNanos - measured) / 1_000_000.0
+                + ", total=" + totalNanos / 1_000_000.0
+                + ", observers=" + observers + ", nearbyEntities=" + nearbyEntities
+                + ", geometryRays=" + geometryRays + ", humanChecks=" + humanChecks
+                + ", guiObservers=" + guiObservers);
+    }
+
+    @Override
     public ChangeSet getVisibleEntities(AgentProxy agent) {
+        observers++;
+        if (view != null) guiObservers++;
         StandardEntity agentEntity = (StandardEntity)agent.getControlledEntity();
         Logger.debug("Finding visible entities for " + agentEntity);
         ChangeSet result = new ChangeSet();
         // Look for objects within range
+        long phaseStart = System.nanoTime();
         Pair<Integer, Integer> location = agentEntity.getLocation(world);
         if (location != null) {
             Point2D point = new Point2D(location.first(), location.second());
             Collection<StandardEntity> nearby = world.getObjectsInRange(location.first(), location.second(), viewDistance);
+            nearbyNanos += System.nanoTime() - phaseStart;
+            nearbyEntities += nearby.size();
             Collection<StandardEntity> visible = findVisible(agentEntity, point, nearby);
+            phaseStart = System.nanoTime();
             for (StandardEntity next : visible) {
                 StandardEntityURN urn = next.getStandardURN();
                 switch (urn) {
@@ -205,6 +234,9 @@ public class LineOfSightPerception implements Perception, GUIComponent {
                 }
             }
 
+            propertiesNanos += System.nanoTime() - phaseStart;
+        } else {
+            nearbyNanos += System.nanoTime() - phaseStart;
         }
         if (view != null) {
             view.repaint();
@@ -312,15 +344,21 @@ public class LineOfSightPerception implements Perception, GUIComponent {
     private Collection<StandardEntity> findVisible(StandardEntity agentEntity, Point2D location, Collection<StandardEntity> nearby) {
         Logger.debug("Finding visible entities from " + location);
         Logger.debug(nearby.size() + " nearby entities");
+        long phaseStart = System.nanoTime();
         if (rayIndex == null) {
             rayIndex = new LineOfSightRayIndex(getAllLines(world.getAllEntities()));
         }
+        indexNanos += System.nanoTime() - phaseStart;
+        phaseStart = System.nanoTime();
         Map<StandardEntity, Integer> entityOrder = new HashMap<>();
         for (StandardEntity entity : nearby) {
             entityOrder.put(entity, entityOrder.size());
         }
         // Cast the same rays, testing only spatially overlapping edges.
         java.util.Set<StandardEntity> result = new HashSet<StandardEntity>();
+        orderNanos += System.nanoTime() - phaseStart;
+        phaseStart = System.nanoTime();
+        geometryRays += Math.max(0, rayCount);
         for (int i = 0; i < rayCount; ++i) {
             Line2D segment = new Line2D(location, rayDirections[i]);
             if (view == null) {
@@ -336,15 +374,19 @@ public class LineOfSightPerception implements Perception, GUIComponent {
                 view.addRay(agentEntity, ray);
             }
         }
+        raysNanos += System.nanoTime() - phaseStart;
+        phaseStart = System.nanoTime();
         // Now look for humans
         for (StandardEntity next : nearby) {
             if (next instanceof Human) {
+                humanChecks++;
                 Human h = (Human)next;
                 if (canSee(agentEntity, location, h, entityOrder)) {
                     result.add(h);
                 }
             }
         }
+        humansNanos += System.nanoTime() - phaseStart;
         // Add self
         result.add(agentEntity);
         Logger.debug(agentEntity + " can see " + result);

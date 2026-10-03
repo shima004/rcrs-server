@@ -28,4 +28,11 @@ public interface Perception {
        @param timestep The current timestep.
     */
     void setTime(int timestep);
+
+    /** Log implementation-specific totals after all agents have been processed.
+     * @param totalNanos Time spent in getVisibleEntities calls in this timestep.
+     */
+    default void logTimingBreakdown(long totalNanos) {
+        // Optional for perception implementations.
+    }
 }
