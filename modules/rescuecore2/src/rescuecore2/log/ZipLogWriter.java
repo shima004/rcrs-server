@@ -29,6 +29,8 @@ public class ZipLogWriter implements LogWriter {
 		private final BasicArrayCache cache;
 
 		CachedLZMA2Options(int dictionarySize, BasicArrayCache cache) throws IOException {
+			// Fast match finding for the many small, independent perception entries.
+			setPreset(1);
 			setDictSize(dictionarySize);
 			this.cache = cache;
 		}

@@ -145,3 +145,37 @@ speedup on a running scenario. All 11 regression tests pass.
 Run the current `ZipLogWriterBenchmark maps/vc` command above to compare fixed
 8 MB cached dictionaries against entry-sized dictionaries. Restart the server
 after rebuilding `rescuecore2Jar` and `standardJar` to use these changes.
+
+## Unsorted visibility collection and fast LZMA2 (2026-10-03)
+
+Without the LOS GUI, geometry rays now collect intersections without sorting
+candidates or hits. A linear scan finds the earliest blocking hit, including
+nearby-entity and source-edge order for equal-distance ties; a second scan adds
+only entities preceding that blocker (and the blocker itself). The GUI retains
+its ordered Ray representation. Human visibility is unchanged. Random-ray,
+endpoint, nearby filtering and tie-order regression tests also exercise this path.
+
+The 7z writer uses LZMA2 preset 1 with the existing entry-sized dictionaries and
+writer-local array cache. This changes compression choices, but retains archive
+entry names/order and decompressed protobuf records. File size can increase or
+decrease depending on input; it is not guaranteed to preserve the previous ratio.
+
+Compared against the immediately preceding implementation on the VC initial
+scenario (539 humans), OpenJDK with fixed heaps, on 2026-10-03:
+
+| Operation | Before | After | Ratio |
+| --- | ---: | ---: | ---: |
+| Generate perception (median of 5, 1 GB heap) | 200.6 ms | 136.0 ms | 1.48x |
+| Write records (median of 5, 512 MB heap) | 58.5 ms | 22.1 ms | 2.65x |
+
+All 539 observers' entity types and property contents matched, ignoring collection
+iteration order. The map benchmark now compares canonicalized properties rather
+than ChangeSet.toString(), whose entity iteration order can change with HashSet
+insertion order. Decompressed log records matched; archives changed from 134200
+to 128202 bytes. Logging measurements include serialization and archive close,
+with two warmup runs. These isolated results do not predict timings in a running
+scenario, especially with the LOS GUI active.
+
+Rebuild with `./gradlew test launcherJar standardJar kernelJar rescuecore2Jar exportLibs`
+and restart the server to load the updated JARs. Compare both visibility and log
+in the same running scenario using the kernel's phase timing.

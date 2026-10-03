@@ -45,7 +45,7 @@ public final class LineOfSightMapBenchmark {
         for (AgentProxy agent : agents) {
             ChangeSet expected = original.getVisibleEntities(agent);
             ChangeSet actual = indexed.getVisibleEntities(agent);
-            if (!expected.toString().equals(actual.toString())) {
+            if (!canonical(expected).equals(canonical(actual))) {
                 throw new AssertionError("Different perception for " + agent.getControlledEntity().getID()
                         + "\nExpected " + expected + "\nActual " + actual);
             }
@@ -69,6 +69,19 @@ public final class LineOfSightMapBenchmark {
         Arrays.sort(newTimes);
         System.out.printf("Full getVisibleEntities, median of 5: baseline=%.1f ms, indexed=%.1f ms, %.2fx%n",
                 oldTimes[2], newTimes[2], oldTimes[2] / newTimes[2]);
+    }
+
+    // HashSet insertion order can differ while the delivered properties are identical.
+    private static java.util.Map<Integer, String> canonical(ChangeSet changes) {
+        var result = new java.util.TreeMap<Integer, String>();
+        for (var id : changes.getChangedEntities()) {
+            var properties = new java.util.ArrayList<String>();
+            for (var property : changes.getChangedProperties(id)) properties.add(property.toString());
+            java.util.Collections.sort(properties);
+            result.put(id.getValue(), changes.getEntityURN(id) + ":" + properties);
+        }
+        for (var id : changes.getDeletedEntities()) result.put(id.getValue(), "deleted");
+        return result;
     }
 
     private static double run(Perception perception, List<AgentProxy> agents) {

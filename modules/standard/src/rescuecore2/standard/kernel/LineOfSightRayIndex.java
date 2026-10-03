@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import rescuecore2.standard.entities.StandardEntity;
 import rescuecore2.misc.geometry.Line2D;
 import rescuecore2.standard.kernel.LineOfSightPerception.LineInfo;
@@ -47,6 +48,48 @@ final class LineOfSightRayIndex {
             result.add(entry.line);
         }
         return result;
+    }
+
+    /** Collect visible entities without sorting or constructing display rays. */
+    void addVisibleEntities(Line2D ray, Map<StandardEntity, Integer> entityOrder,
+            Set<StandardEntity> result) {
+        List<Entry> found = new ArrayList<>();
+        if (root != null) {
+            root.collect(ray, entityOrder, found);
+        }
+        double[] distances = new double[found.size()];
+        Entry blocker = null;
+        double limit = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < found.size(); i++) {
+            Entry entry = found.get(i);
+            double d1 = ray.getIntersection(entry.line.getLine());
+            double d2 = entry.line.getLine().getIntersection(ray);
+            distances[i] = Double.POSITIVE_INFINITY;
+            if (d2 >= 0 && d2 <= 1 && d1 > 0 && d1 <= 1) {
+                distances[i] = d1;
+                if (entry.line.isBlocking() && (d1 < limit
+                        || (d1 == limit && precedes(entry, blocker, entityOrder)))) {
+                    blocker = entry;
+                    limit = d1;
+                }
+            }
+        }
+        for (int i = 0; i < found.size(); i++) {
+            Entry entry = found.get(i);
+            double distance = distances[i];
+            if (distance <= 1 && (distance < limit || entry == blocker
+                    || (distance == limit && precedes(entry, blocker, entityOrder)))) {
+                result.add(entry.line.getEntity());
+            }
+        }
+    }
+
+    private static boolean precedes(Entry a, Entry b, Map<StandardEntity, Integer> entityOrder) {
+        if (entityOrder != null) {
+            int comparison = Integer.compare(entityOrder.get(a.line.getEntity()), entityOrder.get(b.line.getEntity()));
+            if (comparison != 0) return comparison < 0;
+        }
+        return a.order < b.order;
     }
 
     /** Human visibility only needs to know whether a blocker lies before the endpoint. */
