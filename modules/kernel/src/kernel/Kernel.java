@@ -511,6 +511,7 @@ public class Kernel {
 			next.sendPerceptionUpdate(time, visible, heard);
 			sendNanos += System.nanoTime() - phaseStart;
 		}
+		perception.logTimingBreakdown(visibilityNanos);
 		Logger.debug("Perception breakdown (ms): setup=" + setupNanos / 1_000_000.0
 				+ ", visibility=" + visibilityNanos / 1_000_000.0
 				+ ", hearing/register=" + hearingNanos / 1_000_000.0
