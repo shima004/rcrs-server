@@ -320,9 +320,13 @@ public class LineOfSightPerception implements Perception, GUIComponent {
             entityOrder.put(entity, entityOrder.size());
         }
         // Cast the same rays, testing only spatially overlapping edges.
-        Collection<StandardEntity> result = new HashSet<StandardEntity>();
+        java.util.Set<StandardEntity> result = new HashSet<StandardEntity>();
         for (int i = 0; i < rayCount; ++i) {
             Line2D segment = new Line2D(location, rayDirections[i]);
+            if (view == null) {
+                rayIndex.addVisibleEntities(segment, entityOrder, result);
+                continue;
+            }
             Ray ray = new Ray(segment, rayIndex.candidates(segment, entityOrder));
             for (LineInfo hit : ray.getLinesHit()) {
                 StandardEntity e = hit.getEntity();

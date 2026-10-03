@@ -37,6 +37,11 @@ class LineOfSightRayIndexTest {
         assertEquals(reference.getVisibleLength(), actual.getVisibleLength());
         assertEquals(reference.getVisibleLength() >= 1, index.isVisible(segment, null));
         assertEquals(reference.getLinesHit(), actual.getLinesHit());
+        var visible = new java.util.HashSet<rescuecore2.standard.entities.StandardEntity>();
+        index.addVisibleEntities(segment, null, visible);
+        var expected = new java.util.HashSet<rescuecore2.standard.entities.StandardEntity>();
+        for (LineInfo hit : reference.getLinesHit()) expected.add(hit.getEntity());
+        assertEquals(expected, visible);
     }
 
     @Test
@@ -99,6 +104,9 @@ class LineOfSightRayIndexTest {
         Ray expected = new Ray(segment, List.of(first, second, third));
         Ray actual = new Ray(segment, new LineOfSightRayIndex(global).candidates(segment, order));
         assertEquals(expected.getLinesHit(), actual.getLinesHit());
+        var visible = new java.util.HashSet<rescuecore2.standard.entities.StandardEntity>();
+        new LineOfSightRayIndex(global).addVisibleEntities(segment, order, visible);
+        assertEquals(java.util.Set.of(first.getEntity(), second.getEntity()), visible);
         assertEquals(expected.getVisibleLength(), actual.getVisibleLength());
         assertEquals(expected.getVisibleLength() >= 1, new LineOfSightRayIndex(global).isVisible(segment, order));
     }
