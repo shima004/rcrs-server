@@ -56,8 +56,9 @@ public class ZipLogWriter implements LogWriter {
 				options = new CachedLZMA2Options(size, cache);
 				optionsBySize.put(size, options);
 			}
-			sevenZOutput.setContentMethods(List.of(new SevenZMethodConfiguration(SevenZMethod.LZMA2, options)));
-			sevenZOutput.putArchiveEntry(getRecordArchive(record));
+			SevenZArchiveEntry entry = getRecordArchive(record);
+			entry.setContentMethods(List.of(new SevenZMethodConfiguration(SevenZMethod.LZMA2, options)));
+			sevenZOutput.putArchiveEntry(entry);
 			sevenZOutput.write(data);
 			sevenZOutput.closeArchiveEntry();
 		} catch (IOException e) {
