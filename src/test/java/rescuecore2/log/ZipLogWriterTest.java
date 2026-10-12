@@ -126,4 +126,20 @@ class ZipLogWriterTest {
             assertNull(reader.getNextEntry());
         }
     }
+
+    @Test
+    void preservesLongDictionaryReferencesWhenTheLastEntryUsesASmallDictionary() throws Exception {
+        // A short repeated string never references beyond 4 KiB and masked the bug.
+        var random = new java.util.Random(42);
+        var pattern = new StringBuilder();
+        for (int i = 0; i < 16384; i++) pattern.append((char) ('a' + random.nextInt(26)));
+        var config = new rescuecore2.config.Config();
+        config.setValue("dictionary-regression", pattern.toString().repeat(4));
+        List<LogRecord> records = List.of(new StartLogRecord(), new ConfigRecord(config), new EndLogRecord());
+        Path baseline = directory.resolve("dictionary-baseline.7z");
+        Path actual = directory.resolve("dictionary-actual.7z");
+        writeBaseline(baseline, records);
+        writeOptimized(actual, records);
+        assertSameContents(baseline, actual);
+    }
 }
