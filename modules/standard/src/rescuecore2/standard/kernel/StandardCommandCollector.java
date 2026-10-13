@@ -3,6 +3,10 @@ package rescuecore2.standard.kernel;
 import rescuecore2.config.Config;
 import rescuecore2.messages.Command;
 import rescuecore2.log.Logger;
+import rescuecore2.standard.entities.AmbulanceCentre;
+import rescuecore2.standard.entities.FireStation;
+import rescuecore2.standard.entities.PoliceOffice;
+import rescuecore2.worldmodel.Entity;
 
 import rescuecore2.standard.messages.AKClearArea;
 import rescuecore2.standard.messages.AKExtinguish;
@@ -22,7 +26,7 @@ import java.util.HashSet;
 import java.util.ArrayList;
 
 /**
-   A CommandCollector that will wait until a non-communication command has been received from each agent.
+   A CommandCollector that waits for non-communication commands from agents other than centres.
 */
 public class StandardCommandCollector implements CommandCollector {
     private static final long WAIT_TIME = 100;
@@ -33,7 +37,15 @@ public class StandardCommandCollector implements CommandCollector {
 
     @Override
     public Collection<Command> getAgentCommands(Collection<AgentProxy> agents, int timestep) throws InterruptedException {
-        Set<AgentProxy> waiting = new HashSet<AgentProxy>(agents);
+        Set<AgentProxy> waiting = new HashSet<AgentProxy>();
+        for (AgentProxy next : agents) {
+            Entity entity = next.getControlledEntity();
+            if (!(entity instanceof FireStation)
+                    && !(entity instanceof PoliceOffice)
+                    && !(entity instanceof AmbulanceCentre)) {
+                waiting.add(next);
+            }
+        }
         while (!waiting.isEmpty()) {
             for (AgentProxy next : agents) {
                 Collection<Command> commands = next.getAgentCommands(timestep);
