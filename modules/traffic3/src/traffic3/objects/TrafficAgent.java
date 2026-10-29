@@ -948,7 +948,7 @@ public class TrafficAgent {
 		double k = TrafficConstants.getAgentForceCoefficientK();
 		double forceLimit = TrafficConstants.getAgentForceLimit();
 
-		Collection<TrafficAgent> nearby = manager.getNearbyAgents(this, cutoff);
+		Collection<TrafficAgent> nearby = manager.getNearbyAgents(this);
 		for (TrafficAgent agent : nearby) {
 			if (!agent.isMobile()) {
 				continue;
